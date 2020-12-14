@@ -33,12 +33,11 @@ func HttpGet() {
 话说，golang httpclient需要注意的地方着实不少。
 
 - 如没有response.Body.Close()，有些小场景造成persistConn的writeLoop泄露。
-
 - 如header和body都不管，那么会造成泄露的连接干满连接池，后面的请求只能是`短连接`。
 
 ### 上下文
 
-由于某几个业务系统会疯狂调用各区域不同的k8s集群，为减少跨机房带来的时延、新老k8s集群api兼容、减少k8s api-server的负载，故而开发了k8scache服务。在部署运行后开始对该服务进行监控，发现metrics呈现的QPS跟连接数不成正比，qps为1000，连接数为20个。开始以为触发idle timeout被回收，但通过历史监控图分析到连接依然很少。😅
+由于某几个业务系统会疯狂调用各区域不同的k8s集群，为减少跨机房带来的时延、新老k8s集群api兼容、减少k8s api-server的负载，故而开发了k8scache服务。在部署运行后开始对该服务进行监控，发现metrics呈现的QPS跟连接数不成正比，qps为1500，连接数为10个。开始以为触发idle timeout被回收，但通过历史监控图分析到连接依然很少。😅
 
 按照对k8scache调用方的理解，他们经常粗暴的开启不少协程来对k8scache进行访问。已知默认的golang httpclient transport对连接数是有默认限制的，连接池总大小为100，每个host连接数为2。当并发对某url进行请求时，当无法归还连接池，也就是超过连接池大小的连接会被主动clsoe()。所以，我司的golang脚手架中会对默认的httpclient创建高配的transport，不太可能出现连接池爆满被close的问题。
 
@@ -159,7 +158,7 @@ for _, url := range urls {
 }
 ```
 
-**如何解决？ **
+**如何解决**
 
 不细说了，把header length长度的数据读完就可以了。
 
@@ -194,7 +193,9 @@ for _, url := range urls {
 
 ### 分析源码
 
-httpclient每个连接会创建读写协程两个协程，分别使用reqch和writech来跟roundTrip通信。上层使用的response.Body其实是经过多次封装的，一次层封装的body是直接跟net.conn进行交互读取，二次封装的body则是加强了close和eof处理的bodyEOFSignal。当未读取body就进行close时，会触发earlyCloseFn()回调，看earlyCloseFn的函数定义，在close未见io.EOF时才调用。
+httpclient每个连接会创建读写协程两个协程，分别使用reqch和writech来跟roundTrip通信。上层使用的response.Body其实是经过多次封装的，一次层封装的body是直接跟net.conn进行交互读取，二次封装的body则是加强了close和eof处理的bodyEOFSignal。
+
+当未读取body就进行close时，会触发earlyCloseFn()回调，看earlyCloseFn的函数定义，在close未见io.EOF时才调用。自定义的earlyCloseFn方法会给readLoop监听的waitForBodyRead传入false,  这样引发alive为false不能继续循环的接收新请求，只能是退出调用注册过的defer方法，关闭连接和清理连接池。
 
 ```go
 // xiaorui.cc
@@ -222,7 +223,7 @@ func (pc *persistConn) readLoop() {
 			err = transportReadFromServerError{err}
 			closeErr = err
 		}
-		...
+    ...
 
 		waitForBodyRead := make(chan bool, 2)
 		body := &bodyEOFSignal{
@@ -232,7 +233,7 @@ func (pc *persistConn) readLoop() {
 				waitForBodyRead <- false
 				...
 			},
-      // 正常收尾 !!!
+			// 正常收尾 !!!
 			fn: func(err error) error {
 				isEOF := err == io.EOF
 				waitForBodyRead <- isEOF
@@ -251,7 +252,7 @@ func (pc *persistConn) readLoop() {
 		select {
 		case bodyEOF := <-waitForBodyRead:
 			replaced := pc.t.replaceReqCanceler(rc.cancelKey, nil) // before pc might return to idle pool
-      // alive为false, 不能继续continue
+			// alive为false, 不能继续continue
 			alive = alive &&
 				bodyEOF &&
 				!pc.sawEOF &&
@@ -292,7 +293,7 @@ func (es *bodyEOFSignal) Close() error {
 
 ```
 
-最终的连接关闭
+最终会调用persistConn的close(), 连接关闭并关闭closech。
 
 ```go
 // xiaorui.cc
@@ -323,9 +324,6 @@ func (pc *persistConn) closeLocked(err error) {
 
 ### 总之
 
-同事的这个使用方法本就很诡异，除了head method之外，还真想不到有不读取body的请求。大家知道有这么一回事就行了。另外，一直觉得net/http的代码太绕，没看过一些介绍直接看代码很容易陷进去，有时间专门讲讲http client的实现。
+同事的httpclient使用方法有些奇怪，除了head method之外，还真想不到有不读取body的请求。所以，大家知道httpclient有这么一回事就行了。
 
-
-
-
-
+另外，一直觉得net/http的代码太绕，没看过一些介绍直接看代码很容易陷进去，有时间专门讲讲http client的实现。
