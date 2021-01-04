@@ -83,7 +83,11 @@ redis 的性能一直是大家所称赞的，在不使用 redis 6.0 multi io thr
 
 增加节点容易，批量也容易。起初在优化推送系统时，已经把同一个逻辑中的 redis 操作改为批量模式了。但问题来了，很多的 redis 操作在不同的逻辑块里面，没法合成一个 pipeline。
 
-然后做了进一步的优化，把不同逻辑中的 redis 请求合并到一个 pipeline 里，优点在于提高了 redis 的吞吐，减少了 socket 系统调用、网络中断开销，缺点是增加了逻辑复杂度，使用 channal 管道做队列及通知增加了 runtime 调度开销，pipeline worker 触发条件是满足 3 个 command 或 5ms 超时，定时器采用分段的时间轮。通过压力测试 cpu 减少了 `4%` 左右，但 redis qps 降到 7w 左右。
+然后做了进一步的优化，把不同逻辑中的 redis 请求合并到一个 pipeline 里，优点在于提高了 redis 的吞吐，减少了 socket 系统调用、网络中断开销，缺点是增加了逻辑复杂度，使用 channal 管道做队列及通知增加了 runtime 调度开销，pipeline worker 触发条件是满足 3 个 command 或 5ms 超时，定时器采用分段的时间轮。
+
+对比优化修改前，cpu开销减少了 `3%` 左右，redis qps降到 7w 左右，当然概率上消息的时延会高了几个ms。
+
+实现的逻辑参考下图，调用方把redis command和接收结果的chan推送到任务队列中，然后由一个worker去消费，worker组装多个redis cmd为pipeline，向redis发起请求并拿回结果，拆解结果集后，给每个命令对应的结果chan推送结果。调用方在推送任务到队列后，就一直监听传输结果的chan。
 
 ![](https://gitee.com/rfyiamcool/image/raw/master/2020/Jietu20210104-151628.jpg)
 
