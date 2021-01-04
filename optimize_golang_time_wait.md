@@ -46,7 +46,7 @@ net.ipv4.tcp_tw_reuse = 0
 
 下面是推送代码中的连接池配置，空闲连接池只有50，最大可以new的连接可以到500个。这代表当有大量请求时，企图先从size为50的连接池里获取连接，如果拿不到连接则new一个新连接，连接用完了后需要归还连接池，如果这时候连接池已经满了，那么该连接会主动进行close关闭。
 
-```
+```bash
 MaxIdle   = 10
 MaxActive = 500
 Wait      = false
@@ -58,7 +58,7 @@ Wait      = false
 
 调大golang redis client的maxIdle连接池大小，避免了大并发下无空闲连接而新建连接和池子爆满又不能归还连接的尴尬场面。当pool wait 为true时，意味着如果空闲池中没有可用的连接且当前Active连接数 > MaxIdle，则阻塞等待可用的连接。反之直接返回 "connection pool exhausted" 错误。
 
-```
+```bash
 MaxIdle   = 300
 MaxActive = 400
 Wait      = true
@@ -70,9 +70,9 @@ redis的性能一直是大家所称赞的，在不使用redis 6.0 multi io threa
 
 > Redis QPS高低跟redis版本和cpu hz、cache存在正比关系
 
-根据我的经验，内网环境且已实例化连接对象，单条redis指令请求耗时通常在0.1ms左右，100us微妙已经够快了，但为什么还会因redis client连接池无空闲连接而建立新连接的情况？
+根据我的经验，在内网环境下且已实例化连接对象，单条redis指令请求耗时通常在0.2ms左右，200us微妙已经够快了，但为什么还会因redis client连接池无空闲连接而建立新连接的情况？
 
-通过grafana监控分析redis集群，发现有几个节点QPS已经到了性能瓶颈。难怪不能快速处理redis请求，这瓶颈必然会影响请求的时延。请求的时延都高了，连接池不能及时返回连接池，所以就造成中描述的问题。总之，业务流量暴增引起的。
+通过grafana监控分析redis集群，发现有几个节点QPS已经到了Redis单实例性能瓶颈，QPS干到了近15w左右。难怪不能快速处理来自业务的redis请求。这瓶颈必然会影响请求的时延。请求的时延都高了，连接池不能及时返回连接池，所以就造成中描述的问题。总之，业务流量的暴增引起的一系列问题。
 
 ![https://gitee.com/rfyiamcool/image/raw/master/2020/20210103222040.png](https://gitee.com/rfyiamcool/image/raw/master/2020/20210103222040.png)
 
