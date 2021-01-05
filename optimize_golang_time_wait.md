@@ -85,7 +85,9 @@ redis 的性能一直是大家所称赞的，在不使用 redis 6.0 multi io thr
 
 然后做了进一步的优化，把不同逻辑中的 redis 请求合并到一个 pipeline 里，优点在于提高了 redis 的吞吐，减少了 socket 系统调用、网络中断开销，缺点是增加了逻辑复杂度，使用 channal 管道做队列及通知增加了 runtime 调度开销，pipeline worker 触发条件是满足 3 个 command 或 5ms 超时，定时器采用分段的时间轮。
 
-对比优化修改前，cpu开销减少了 `3%` 左右，redis qps降到 7w 左右，当然概率上消息的时延会高了几个ms。
+对比优化修改前，cpu开销减少了 `3%` 左右，压测下redis qps平均降了 3w 左右差值，最多可以降到 7w 左右，当然概率上消息的时延会高了几个ms。
+
+![](https://gitee.com/rfyiamcool/image/raw/master/2020/20210105144248.png)
 
 实现的逻辑参考下图，调用方把redis command和接收结果的chan推送到任务队列中，然后由一个worker去消费，worker组装多个redis cmd为pipeline，向redis发起请求并拿回结果，拆解结果集后，给每个命令对应的结果chan推送结果。调用方在推送任务到队列后，就一直监听传输结果的chan。
 
