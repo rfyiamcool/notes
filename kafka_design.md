@@ -105,5 +105,5 @@ ppt 的页数有 70 页，只是传了部分的预览图，想看完整的 ppt �
 ![](http://xiaorui.cc/wp-content/uploads/2021/02/kafka-1-1-56-2232021.jpeg)
 ![](http://xiaorui.cc/wp-content/uploads/2021/02/kafka-1-1-57-2232021.jpeg)
 ![](http://xiaorui.cc/wp-content/uploads/2021/02/kafka-1-1-58-2232021.jpeg)
-![](http://xiaorui.cc/wp-content/uploads/2021/02/kafka-1-1-59-2232021.jpeg]
+![](http://xiaorui.cc/wp-content/uploads/2021/02/kafka-1-1-59-2232021.jpeg)
 ![](http://xiaorui.cc/wp-content/uploads/2021/02/kafka-1-1-60-2232021.jpeg)
