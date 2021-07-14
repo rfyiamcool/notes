@@ -2,7 +2,7 @@
 
 ### 开头
 
-该 topic 有点唬人，只为水一篇文章, 如果大家有跟我类似的 链路trace 需求，则需要关注下时间校对问题.
+该 topic 有点唬人，只为水一篇文章, 如果大家有跟我类似的调用链路 trace 需求，则需要关注下时间校对问题.
 
 ![](https://gitee.com/rfyiamcool/image/raw/master/2020/bao%20jing.jpg)
 
