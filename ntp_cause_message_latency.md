@@ -1,6 +1,8 @@
-## 时间不同步造成的消息高时延假象
+## 时间不同步造成的trace高时延假象
 
-该 topic 有点唬人，只为水一篇文章, 如果大家有跟我类似的 链路trace 需求，则需要关注下时间校对问题. 
+### 开头
+
+该 topic 有点唬人，只为水一篇文章, 如果大家有跟我类似的 链路trace 需求，则需要关注下时间校对问题.
 
 ![](https://gitee.com/rfyiamcool/image/raw/master/2020/bao%20jing.jpg)
 
