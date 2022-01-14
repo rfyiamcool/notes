@@ -1,4 +1,4 @@
-## 使用 golang 实现进程级流量监控
+## 使用 golang gopacket 实现进程级流量监控
 
 ### 需求
 
@@ -12,7 +12,7 @@
 
 从设计到流量测试完毕，用了差不多 `两天半` 的时间。go-netflow 的接口方面还算完善，最少满足了我们容器云团队及 sre 的需求。但他的 cli 终端部分很是简陋，有兴趣的同学可以帮忙提交 pr。
 
-###  实现
+### 实现
 
 像 promethues, openfalcon 这类开源监控软件，通过 `/proc/net/snmp` 和 `/proc/net/netstat` 获取连接和流量信息。
 
@@ -63,6 +63,10 @@ tcpdump 在大流量网关下是相当消耗 cpu 资源的，netflow 里做了�
 WithLimitCgroup(cpu float64, mem int)
 ```
 
+**写入pcap文件**
+
+netflow支持pcap文件的写入，后面可通过 `tcpdump` 或 `wireshark` 来读取 netflow 写入的pcap文件。
+
 **超时机制**
 
 netflow 限定了默认超时时间为 5 分钟，当超过 5 分钟后会关闭所有设备的监听。这么做主要为了避免长时间运行忘了关闭，尤其是通过 netflow 接口来进行抓包的。
@@ -70,3 +74,7 @@ netflow 限定了默认超时时间为 5 分钟，当超过 5 分钟后会关闭
 ### 效果
 
 ![](https://gitee.com/rfyiamcool/image/raw/master/2020/20211014111740.png)
+
+### 优化
+
+go-netflow 还是有一些优化空间的, 内存方面可以针对一些对象做复用, 使用 sync.pool 减少新对象的创建。CPU的开销主要在 google gopacket 调用上, cgo 的调用一点也不便宜, 暂时没有好的方法来优化。 另外, 进程的流量监控无需太细致，粗粒度采样足够了。
