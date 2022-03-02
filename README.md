@@ -2,6 +2,8 @@
 
 ## 文章列表
 
+- [让人迷糊的socket udp连接问题](https://github.com/rfyiamcool/notes/blob/main/udp_connect_refuse.md)
+
 - [使用 golang 实现进程级别的流量监控](https://github.com/rfyiamcool/notes/blob/main/netflow.md)
 
 - [高并发场景下disk io造成的高时延问题](https://github.com/rfyiamcool/notes/blob/main/reduce_disk_latency.md)
