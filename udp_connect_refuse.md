@@ -146,7 +146,7 @@ udp       0      0 :::29999                :::*                                4
 
 当 client 跟 server 已连接，server 端手动重启后，客户端无需再次重新实例化连接，可以继续发送数据, 当服务端再次启动后，照样可以收到客户端发来的报文.
 
-恩, udp 本就无握手的过程，他的 udp connect() 也只是在本地创建 socket 信息. udp 的报文无需匹配五元组找到 socket.
+udp 本就无握手的过程，他的 udp connect() 也只是在本地创建 socket 信息. 在服务端使用 netstat 是看不到 udp 五元组的 socket.
 
 ### Golang 测试代码
 
@@ -230,4 +230,6 @@ func main() {
 
 - 当 udp 服务端程序关闭, 但系统还存在时, 对方系统通过 `icmp ECONNREFUSE` 返回错误，客户端会报错.
 
-- 当对方有操作 iptables udp port drop 时，通常客户端也会显示成功.
+- 当对方有操作 iptables udp port drop 时，客户端也会显示成功.
+
+- 客户端和服务端互通数据，当服务进程挂了时，UDP 客户端不能立马感知关闭状态，只有当再次发数据时才会被对方系统回应 `icmp ECONNREFUSE` 异常报文, 客户端才能感知对方挂了.
