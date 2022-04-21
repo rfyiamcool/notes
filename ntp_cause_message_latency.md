@@ -4,13 +4,13 @@
 
 该 topic 有点唬人，只为水一篇文章, 如果大家有跟我类似的调用链路 trace 需求，则需要关注下时间校对问题.
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/bao%20jing.jpg)
+![](https://xiaorui.cc/image/2020/bao%20jing.jpg)
 
 ### 缘由
 
 收到了大量的消息高延迟的报警信息, 排查了一圈可以确定 push 内部运转正常, 但为什么会出现高延迟的问题 ?
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/20210714140717.png)
+![](https://xiaorui.cc/image/2020/20210714140717.png)
 
 大部分的消息延迟在 `< 100ms` 区间内, 但通过监控图可以看到还有一部分耗时集中在 `15s-30s` 区间, 这个延迟着实有点高呀.
 
@@ -20,7 +20,7 @@
 
 日志的时间就是日志中的时间字段，而不是 filebeat 的收集时间. 既然时间不对，那么可以猜测出大概率是时间无对齐.
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/20210714135116.png)
+![](https://xiaorui.cc/image/2020/20210714135116.png)
 
 果然 ops 给我的答复是 ntp 关闭了自动同步, ntp 关了那么就只能依赖于晶振脉冲了, 但这玩意在不同温度和湿度下产生不同的频率, 所以时间一长date就对不齐了.
 
@@ -30,4 +30,4 @@
 
 运行 ntpdate 或者启动 ntpd 服务就可以了.
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/20210714134420.png)
+![](https://xiaorui.cc/image/2020/20210714134420.png)

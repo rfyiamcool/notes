@@ -22,11 +22,11 @@ udp 协议既没有三次握手，又没有 TCP 那样的状态控制报文，�
 
 通过抓包可以发现返回的协议为 `ICMP`, 但含有源端口和目的端口, 客户端系统解析该报文时，通过五元组找到对应的 socket, 并 errno 返回异常错误，如果客户端陷入等待，则唤醒起来, 设置错误状态.
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/Jietu20220128-223810.jpg)
+![](https://xiaorui.cc/image/2020/Jietu20220128-223810.jpg)
 
 (上面是 udp 异常下的 icmp，下面是正常 icmp)
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/Jietu20220128-223930.jpg)
+![](https://xiaorui.cc/image/2020/Jietu20220128-223930.jpg)
 
 当 UDP 连接异常时，可以通过 tcpdmp 工具指定 ICMP 协议来抓取该异常报文，毕竟对方是通过 icmp 返回的 ECONNREFUSED.
 

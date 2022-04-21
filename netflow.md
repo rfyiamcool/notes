@@ -73,7 +73,7 @@ netflow 限定了默认超时时间为 5 分钟，当超过 5 分钟后会关闭
 
 ### 效果
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/20211014111740.png)
+![](https://xiaorui.cc/image/2020/20211014111740.png)
 
 ### 优化
 
