@@ -6,19 +6,19 @@
 
 下图是我司长连接消息推送系统的简单架构图，出问题就是处在下游的消息生产方业务端。
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/Jietu20210603-074526_Fotor.jpg)
+![](https://xiaorui.cc/image/2020/Jietu20210603-074526_Fotor.jpg)
 
 其实更重要的因为是前些日子公司做成本优化，把一个可用区里的一波机器从物理机迁移到阿里云内，机器的配置也做了阉割。突然想起 曹春晖大佬 的一句话，`没钱做优化，有钱加机器`。
 
 这样两个问题加起来，导致消息时延从 `< 100ms` 干到 `< 3s` 左右，通过监控看到高时延问题最少 `10` 来分钟。
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/ssssss.jpg)
+![](https://xiaorui.cc/image/2020/ssssss.jpg)
 
 ### 分析问题
 
 造成消息推送的时延飙高，通常来说有几种情况，要么cpu有负载？要么 redis 时延高？要么消费rocketmq 慢？或者哪个关键函数处理慢 ? 
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/bbbbbb_Fotor.jpg)
+![](https://xiaorui.cc/image/2020/bbbbbb_Fotor.jpg)
 
 通过监控图表得知，load正常，且网络io方面都不慢，但两个关键函数都发生了处理延迟的现象，该两函数内处理redis和mq的网络io操作外，基本是纯业务组合的逻辑，讲道理不会慢成这个德行。
 
@@ -57,4 +57,4 @@ Crash造成异步日志丢失？针对日志做个metrics，超过一定的阈�
 
 下面是我们集群中的北京阿里云可用区集群，高峰期消息的推送量不低，但消息的延迟稳定在 100ms 以内。
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/Jietu20210602-225446_Fotor.jpg)
+![](https://xiaorui.cc/image/2020/Jietu20210602-225446_Fotor.jpg)

@@ -8,7 +8,7 @@
 
 如何优化这个时延问题，可以临时通过 redis pipeline 批量管道来优化时延。
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/Jietu20210209-115157.jpg)
+![](https://xiaorui.cc/image/2020/Jietu20210209-115157.jpg)
 
 但在使用管道时带来了一个问题，看下文。
 
