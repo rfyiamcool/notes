@@ -10,17 +10,17 @@
 
 话说，元旦当天在线数和订单量确实大了不少，往常推送系统的长连接客户端在 35w，这次峰值飙到 `50w` 左右, 集群共 6 个节点，其中有 4 个节点每个都抗了 9w+ 的长连接。另外，推送的消息量也随之翻倍。
 
-![https://gitee.com/rfyiamcool/image/raw/master/2020/20210103201357.png](https://gitee.com/rfyiamcool/image/raw/master/2020/20210103201357.png)
+![https://xiaorui.cc/image/2020/20210103201357.png](https://xiaorui.cc/image/2020/20210103201357.png)
 
 ### 分析
 
 下面是 kibana 日志的统计，出错的时间区间里有近 16w 次的 redis 报错。
 
-![https://gitee.com/rfyiamcool/image/raw/master/2020/20210103193642.png](https://gitee.com/rfyiamcool/image/raw/master/2020/20210103193642.png)
+![https://xiaorui.cc/image/2020/20210103193642.png](https://xiaorui.cc/image/2020/20210103193642.png)
 
 下面是出问题节点的 TCP 连接状况，可以看到 established 在 6w，而`time-wait` 连接干到 2w 多个。
 
-![https://gitee.com/rfyiamcool/image/raw/master/2020/20210103193737.png](https://gitee.com/rfyiamcool/image/raw/master/2020/20210103193737.png)
+![https://xiaorui.cc/image/2020/20210103193737.png](https://xiaorui.cc/image/2020/20210103193737.png)
 
 为什么会产生这么多 time-wait？谁主动关闭就就有 time-wait，但推送系统除了协议解析失败之外，其余情况都不会主动 close 客户端，哪怕是鉴权失败和弱网络客户端写缓冲爆满，事后通过日志也确定了不是推送系统自身产生的 tw。
 
@@ -74,7 +74,7 @@ redis 的性能一直是大家所称赞的，在不使用 redis 6.0 multi io thr
 
 通过 grafana 监控分析 redis 集群，发现有几个节点 QPS 已经到了 Redis 单实例性能瓶颈，QPS 干到了近 15w 左右。难怪不能快速处理来自业务的 redis 请求。这个瓶颈必然会影响请求的时延。请求的时延都高了，连接池不能及时返回连接池，所以就造成了文章开头说的问题。总之，业务流量的暴增引起了一系列问题。
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/20210104154150.png)
+![](https://xiaorui.cc/image/2020/20210104154150.png)
 
 发现问题，那么就要解决问题，redis 的 qps 优化方案有两步：
 
@@ -87,11 +87,11 @@ redis 的性能一直是大家所称赞的，在不使用 redis 6.0 multi io thr
 
 对比优化修改前，cpu开销减少了 `3%` 左右，压测下redis qps平均降了 3w 左右差值，最多可以降到 7w 左右，当然概率上消息的时延会高了几个ms。
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/20210105144248.png)
+![](https://xiaorui.cc/image/2020/20210105144248.png)
 
 实现的逻辑参考下图，调用方把redis command和接收结果的chan推送到任务队列中，然后由一个worker去消费，worker组装多个redis cmd为pipeline，向redis发起请求并拿回结果，拆解结果集后，给每个命令对应的结果chan推送结果。调用方在推送任务到队列后，就一直监听传输结果的chan。
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/Jietu20210104-151628.jpg)
+![](https://xiaorui.cc/image/2020/Jietu20210104-151628.jpg)
 
 这个方案来自我在上家公司做推送系统的经验，有兴趣的朋友可以看看 PPT，内涵不少高并发经验。[分布式推送系统设计与实现](https://github.com/rfyiamcool/share_ppt#%E5%88%86%E5%B8%83%E5%BC%8F%E8%A1%8C%E6%83%85%E6%8E%A8%E9%80%81%E7%B3%BB%E7%BB%9Fgolang)
 

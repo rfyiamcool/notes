@@ -18,7 +18,7 @@
 - k8s version = v1.20.6
 - istio version = 1.10.2
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/%E6%9C%8D%E5%8A%A1%E6%B3%A8%E5%86%8C.jpg)
+![](https://xiaorui.cc/image/2020/%E6%9C%8D%E5%8A%A1%E6%B3%A8%E5%86%8C.jpg)
 
 ### tool
 
@@ -248,7 +248,7 @@ Transfer/sec:     42.10MB
 
 为什么性能差距这么明显 ??? 😅 为什么 envoy 的 cpu 开销最高只能 `200%` .
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/20210716171014.png)
+![](https://xiaorui.cc/image/2020/20210716171014.png)
 
 通过 kubectl describe pod 查看了业务相关的sidecar, cpu limit 只有2U，内存也仅仅有1GB.
 

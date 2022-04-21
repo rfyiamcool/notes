@@ -54,7 +54,7 @@ label:
 
 ### Git-Flow
 
-![](https://gitee.com/rfyiamcool/image/raw/master/2020/20210416171419.png)
+![](https://xiaorui.cc/image/2020/20210416171419.png)
 
 ### 分支说明
 
