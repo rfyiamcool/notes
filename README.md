@@ -2,6 +2,8 @@
 
 ## 文章列表
 
+- [golang deque 高性能双端队列的实现](https://github.com/rfyiamcool/notes/blob/main/golang_deque.md)
+
 - [让人迷糊的socket udp连接问题](https://github.com/rfyiamcool/notes/blob/main/udp_connect_refuse.md)
 
 - [使用 golang 实现进程级别的流量监控](https://github.com/rfyiamcool/notes/blob/main/netflow.md)
