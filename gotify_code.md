@@ -10,9 +10,12 @@
 
 虽然 gotify/server 有些功能缺失，但作者花费时间做开源还是很值得敬佩的，另外还对前端接入及安卓端做了实现，还有文档也较为完整. 😁
 
+社区还有一个使用 golang 开发的推送系统 `ntfy.sh`, ntfy 推送系统的设计跟 gotify 差不多，相比 gotify 多了一个 ios 客户端实现, 社区关注度和文档相比 gotify 都要差一些.
+
 **代码地址:**
 
-[https://github.com/gotify/server](https://github.com/gotify/server)
+- [gotify/server](https://github.com/gotify/server)
+- [ntfy](https://github.com/binwiederhier/ntfy)
 
 ### 阻塞引发的问题
 
