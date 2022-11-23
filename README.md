@@ -2,6 +2,8 @@
 
 ## 文章列表
 
+- [traefik 设计实现之配置的动态更新](https://github.com/rfyiamcool/notes/blob/main/traefik_dynamic_provider.md)
+
 - [Gotify 消息推送系统的设计实现](https://github.com/rfyiamcool/notes/blob/main/gotify_code.md)
 
 - [golang deque 高性能双端队列的实现](https://github.com/rfyiamcool/notes/blob/main/golang_deque.md)
