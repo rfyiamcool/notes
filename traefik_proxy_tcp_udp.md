@@ -1,6 +1,6 @@
 ## traefik 设计实现之 tcp 和 udp 代理
 
-traefik 处理 http 的代理外，还支持 tcp, udp 的代理转发. 这里通过源码来分析下 tcp 和 udp 代理的设计实现.
+traefik 处理 http 的代理外，还支持 tcp, udp 的代理转发. 这里通过 traefik 源码来分析下 tcp 和 udp 代理的设计实现.
 
 ### TCP 代理
 
@@ -180,6 +180,8 @@ epoll_wait(12, [], 512, 3000)           = 0
 close(5)                                = 0
 close(4)                                = 0
 ```
+
+另外, envoy 也没有使用纯内核态的 splice 实现 tcp 代理，而是使用用户态的数据拷贝. 😅 搞不懂.
 
 ####  io.copy 的 splice 代码分析
 
