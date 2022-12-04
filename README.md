@@ -2,7 +2,7 @@
 
 ## 文章列表
 
-- [traefik 设计实现之 http、http2 和 grpc 代理](https://github.com/rfyiamcool/notes/blob/main/traefik_http_grpc_proxy.go.md)
+- [traefik 设计实现之 http、http2 和 grpc 代理](https://github.com/rfyiamcool/notes/blob/main/traefik_http_grpc_proxy.md)
 
 - [traefik 设计实现之 tcp 和 udp 代理](https://github.com/rfyiamcool/notes/blob/main/traefik_proxy_tcp_udp.md)
 
