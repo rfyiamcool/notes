@@ -2,6 +2,8 @@
 
 ## 文章列表
 
+- [golang wal 预写日志的设计实现](https://github.com/rfyiamcool/notes/blob/main/golang_wal_code.md)
+
 - [traefik 设计实现之 http、http2 和 grpc 代理](https://github.com/rfyiamcool/notes/blob/main/traefik_http_grpc_proxy.md)
 
 - [traefik 设计实现之 tcp 和 udp 代理](https://github.com/rfyiamcool/notes/blob/main/traefik_proxy_tcp_udp.md)
