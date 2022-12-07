@@ -1,6 +1,6 @@
 ## 源码分析 kubernetes kube-proxy 的设计实现
 
-`kubernets kube-proxy 的版本是 v1.27.0`
+`kubernetes kube-proxy 的版本是 v1.27.0`
 
 ### cmd 入口
 
