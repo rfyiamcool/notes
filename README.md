@@ -2,6 +2,8 @@
 
 ## 文章列表
 
+- [源码分析 kubernetes deployment controller 设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_deployment_controller_code.md)
+
 - [源码分析 kubernetes replicaset controller 设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_replicaset_controller_code.md)
 
 - [源码分析 kubernetes kube-proxy 的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_proxy_code.md)
