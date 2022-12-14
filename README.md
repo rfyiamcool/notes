@@ -2,6 +2,8 @@
 
 ## 文章列表
 
+- [源码分析 kubernetes kubelet gc 垃圾回收的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_gc_code.md)
+
 - [源码分析 kubernetes endpoints controller 设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_endpoints_controller_code.md)
 
 - [源码分析 kubernetes deployment controller 设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_deployment_controller_code.md)
