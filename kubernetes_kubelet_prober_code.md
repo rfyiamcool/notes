@@ -1,4 +1,4 @@
-# 源码分析 kubernetes kublete prober 探针的设计实现
+# 源码分析 kubernetes kubelet prober 探针的设计实现
 
 kubelet 使用 livenessProbe 存活探针来确定什么时候要重启容器, 使用 readinessProbe 就绪探针可以确认是否要把流量接入到 service 里, startupProbe 启动探针是为了避免在启动时间不可控时, 使用 liveness 探针探测失败, 造成重启的死循环的场景.
 
