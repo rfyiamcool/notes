@@ -230,7 +230,7 @@ func (dc *DeploymentController) syncDeploymentStatus(ctx context.Context, allRSs
 }
 ```
 
-值得注意的是, k8s 里资源的回收是放在垃圾回收器 `garbagecollector controller` 完成的. 像 replicaset,  deployment, endpoints 等控制器是不会直接删除资源.
+值得注意的是,  真正的删除 deployment, rs, pods 操作是放在垃圾回收控制器器 `garbagecollector controller` 完成的. 在其他控制里的删除只是配置 `DeletionTimestamp` 字段，并标记 orphan、background 或者 foreground 删除标签.
 
 ### 扩缩容 deployment
 
