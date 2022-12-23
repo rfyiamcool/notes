@@ -2,6 +2,8 @@
 
 ## 文章列表
 
+- [源码分析 kubelet eviction manager 驱逐的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_eviction_code.md)
+
 - [源码分析 kubernetes kubelet pod 管理的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_code.md)
 
 - [源码分析 kubernetes kubelet prober 探针的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_prober_code.md)
