@@ -1,6 +1,6 @@
-## 源码分析 kubernetes daemonset controller 控制器的设计实现
+## 源码分析 kubernetes daemonset controller 控制器的原理设计实现
 
-基于 k8s `v1.27.0` 进行源码分析.
+基于 k8s `v1.27.0` 进行源码分析其原理.
 
 ### 入口
 
