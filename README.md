@@ -2,6 +2,8 @@
 
 ## 文章列表
 
+- [源码分析 kubernetes leaderelection 选举的设计原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_leader_election_code.md)
+
 - [源码分析 kubernetes daemonset controller 控制器的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_daemonset_controller_code.md)
 
 - [源码分析 kubelet eviction manager 驱逐的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_eviction_code.md)
