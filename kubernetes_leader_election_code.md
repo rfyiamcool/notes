@@ -2,7 +2,7 @@
 
 ### leader election 选举的例子
 
-这是一个使用 clinet-go leaderelection 库进行选举的例子, 单从使用来说没什么难度.
+这是一个使用 clinet-go leader election 库进行选举的例子, 单从使用来说没什么难度.
 
 首先实例化一个 `resourcelock.LeaseLock` 对象, 需要定义锁的名字, 命名空间及唯一identity. 然后调用 `leaderelection` 的 `RunOrDie` 接口进行选举.
 
