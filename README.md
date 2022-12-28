@@ -1,5 +1,7 @@
 # note
 
+[更多文章在 xiaorui.cc](https://xiaorui.cc)
+
 ## 文章列表
 
 - [源码分析 kubernetes leaderelection 选举的设计原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_leader_election_code.md)
