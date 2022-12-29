@@ -1,4 +1,4 @@
-## 源码分析 kubernetes leaderelection 选举的设计原理
+## 源码分析 kubernetes leaderelection 选举的实现原理
 
 ### leader election 选举的例子
 
