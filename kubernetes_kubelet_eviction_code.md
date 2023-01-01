@@ -1,4 +1,4 @@
-## 源码分析 kubelet eviction manager 驱逐的设计实现
+## 源码分析 kubelet eviction manager 驱逐的实现原理
 
 kubernetes 出于保证节点的服务质量和稳定性，在节点资源紧张时会驱动 kubelet 来做 pods 驱逐. `kubelet eviction manager` 就是驱逐 pod 的具体实现, 该模块主要是检测当前 node 资源是否紧张, 在紧张时按照策略会驱逐 pod. 
 

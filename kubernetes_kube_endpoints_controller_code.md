@@ -1,4 +1,4 @@
-# 源码分析 kubernetes endpoints controller 的设计实现
+# 源码分析 kubernetes endpoints controller 的实现原理
 
 ## 源码分析
 

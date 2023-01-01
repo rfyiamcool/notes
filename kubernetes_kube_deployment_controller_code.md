@@ -1,4 +1,4 @@
-# 源码分析 kubernetes deployment controller 的设计实现
+# 源码分析 kubernetes deployment controller 的实现原理
 
 ## 概述
 
