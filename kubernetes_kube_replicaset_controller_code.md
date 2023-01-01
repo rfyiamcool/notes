@@ -1,4 +1,4 @@
-# 源码分析 kubernetes replicaset controller 设计实现
+# 源码分析 kubernetes replicaset controller 的实现原理
 
 ## replicaset controller 作用
 

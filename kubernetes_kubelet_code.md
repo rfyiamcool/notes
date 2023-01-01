@@ -1,4 +1,4 @@
-# 源码分析 kubernetes kubelet pod 管理的设计实现
+# 源码分析 kubernetes kubelet pod 管理的实现原理
 
 ## 源码分析
 

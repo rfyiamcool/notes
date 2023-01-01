@@ -4,27 +4,29 @@
 
 ## 文章列表
 
+- [源码分析 kubernetes ingress nginx controller 控制器的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_ingress_nginx_controller_code.md)
+
 - [源码分析 kubernetes cronjob controller 控制器的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_cronjob_controller_code.md)
 
 - [源码分析 kubernetes leaderelection 选举的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_leader_election_code.md)
 
-- [源码分析 kubernetes daemonset controller 控制器的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_daemonset_controller_code.md)
+- [源码分析 kubernetes daemonset controller 控制器的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_daemonset_controller_code.md)
 
-- [源码分析 kubelet eviction manager 驱逐的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_eviction_code.md)
+- [源码分析 kubelet eviction manager 驱逐的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_eviction_code.md)
 
-- [源码分析 kubernetes kubelet pod 管理的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_code.md)
+- [源码分析 kubernetes kubelet pod 管理的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_code.md)
 
-- [源码分析 kubernetes kubelet prober 探针的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_prober_code.md)
+- [源码分析 kubernetes kubelet prober 探针的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_prober_code.md)
 
-- [源码分析 kubernetes kubelet gc 垃圾回收的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_gc_code.md)
+- [源码分析 kubernetes kubelet gc 垃圾回收的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_gc_code.md)
 
-- [源码分析 kubernetes endpoints controller 设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_endpoints_controller_code.md)
+- [源码分析 kubernetes endpoints controller 的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_endpoints_controller_code.md)
 
-- [源码分析 kubernetes deployment controller 设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_deployment_controller_code.md)
+- [源码分析 kubernetes deployment controller 的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_deployment_controller_code.md)
 
-- [源码分析 kubernetes replicaset controller 设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_replicaset_controller_code.md)
+- [源码分析 kubernetes replicaset controller 的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_replicaset_controller_code.md)
 
-- [源码分析 kubernetes kube-proxy 的设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_proxy_code.md)
+- [源码分析 kubernetes kube-proxy 的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_proxy_code.md)
 
 - [golang wal 预写日志的设计实现](https://github.com/rfyiamcool/notes/blob/main/golang_wal_code.md)
 
