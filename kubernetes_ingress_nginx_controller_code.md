@@ -1,4 +1,4 @@
-## 源码分析 kubernetes nginx ingress controller 实现原理
+## 源码分析 kubernetes nginx ingress controller 控制的实现原理
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301010021497.png)
 

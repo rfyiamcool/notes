@@ -4,6 +4,8 @@
 
 ## 文章列表
 
+- [源码分析 kubernetes ingress nginx 动态更新的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_ingress_nginx_controller_dynamic_update_code.md)
+
 - [源码分析 kubernetes ingress nginx controller 控制器的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_ingress_nginx_controller_code.md)
 
 - [源码分析 kubernetes cronjob controller 控制器的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_cronjob_controller_code.md)
