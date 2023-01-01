@@ -662,11 +662,11 @@ func (n NGINXController) generateTemplate(cfg ngx_config.Configuration, ingressC
 
 ```go
 stream {
+    # 定义 lua 包位置
     lua_package_path "/etc/nginx/lua/?.lua;/etc/nginx/lua/vendor/?.lua;;";
 
+    # 设置一个共享存储
     lua_shared_dict tcp_udp_configuration_data 5M;
-
-    log_format log_stream '{{ $cfg.LogFormatStream }}';
 
     # 判断 access_log 是否开启 access_log, 如果开启则指定文件路径及格式.
     {{ if or $cfg.DisableAccessLog $cfg.DisableStreamAccessLog }}
@@ -679,11 +679,11 @@ stream {
     error_log  {{ $cfg.ErrorLogPath }} {{ $cfg.ErrorLogLevel }};
 
     upstream upstream_balancer {
-	# 这个只是占位符而已
+	    # 这个只是占位符而已
         server 0.0.0.1:1234; # placeholder
 
-	# tcp 和 udp 转发是依赖 openretry balancer_by_lua_block 控制的.
-	# 具体转发逻辑在 tcp_udp_balancer.lua 这里实现的, balance 是调度入口.
+        # tcp 和 udp 转发是依赖 openretry balancer_by_lua_block 控制的.
+        # 具体转发逻辑在 tcp_udp_balancer.lua 这里实现的, balance 是调度入口.
         balancer_by_lua_block {
           tcp_udp_balancer.balance()
         }
@@ -692,14 +692,14 @@ stream {
     # 遍历生成 TCP services
     {{ range $tcpServer := .TCPBackends }}
     server {
-	# 针对 tcp ipv4 listen 进行渲染
+	    # 针对 tcp ipv4 listen 进行渲染
         {{ range $address := $all.Cfg.BindAddressIpv4 }}
         listen                  {{ $address }}:{{ $tcpServer.Port }}{{ if $tcpServer.Backend.ProxyProtocol.Decode }} proxy_protocol{{ end }};
         {{ else }}
         listen                  {{ $tcpServer.Port }}{{ if $tcpServer.Backend.ProxyProtocol.Decode }} proxy_protocol{{ end }};
         {{ end }}
 
-	# 针对 tcp ipv6 listen 进行渲染
+	    # 针对 tcp ipv6 listen 进行渲染
         {{ if $IsIPV6Enabled }}
         {{ range $address := $all.Cfg.BindAddressIpv6 }}
         listen                  {{ $address }}:{{ $tcpServer.Port }}{{ if $tcpServer.Backend.ProxyProtocol.Decode }} proxy_protocol{{ end }};
@@ -708,16 +708,16 @@ stream {
         {{ end }}
         {{ end }}
 
-	# 配置 tcp proxy 参数
+	    # 配置 tcp proxy 参数
         proxy_timeout           {{ $cfg.ProxyStreamTimeout }};
         proxy_next_upstream     {{ if $cfg.ProxyStreamNextUpstream }}on{{ else }}off{{ end }};
         proxy_next_upstream_timeout {{ $cfg.ProxyStreamNextUpstreamTimeout }};
         proxy_next_upstream_tries   {{ $cfg.ProxyStreamNextUpstreamTries }};
 
-	# 转发到 upstream_balancer
+	    # 转发到 upstream_balancer
         proxy_pass              upstream_balancer;
 
-	# proxy_protocol 是在转发的 tcp 报文中插入客户端 ip 地址, 这样经过层层网关转发后, 后面的 nginx 也可以拿到客户端地址.
+	    # proxy_protocol 是在转发的 tcp 报文中插入客户端 ip 地址, 这样经过层层网关转发后, 后面的 nginx 也可以拿到客户端地址.
         {{ if $tcpServer.Backend.ProxyProtocol.Encode }}
         proxy_protocol          on;
         {{ end }}
@@ -924,20 +924,70 @@ nginx 是可以实现优雅退出的, 老 worker 收到 SIGQUIT 信号后不会�
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301011133932.png)
 
-通过前面 nginx.tmpl 的配置得知, nginx (openretry) 转发地址的逻辑是依赖 upstream 的 balancer_by_lua_block 方法实现的.
+通过前面 nginx.tmpl 的配置得知, nginx (openretry) 转发的逻辑是依赖 upstream 的 balancer_by_lua_block 指令实现的.
 
-http 和 stream (tcp/udp) 在生成配置时, 在 upstream 段里都插入了 `balancer_by_lua_block` 自定义负载均衡逻辑, nginx 会依赖该 balancer 来获取转发的地址, 然后对该连接进行转发.
+http 和 stream (tcp/udp) 在生成配置时, 在 upstream 段里都插入了 `balancer_by_lua_block` 指令用来实现自定义负载均衡逻辑, nginx 会依赖该 balancer 来获取转发的地址, 然后对该连接进行转发.
 
 > 该 lua 转发模块代码位置是 `rootfs/etc/nginx/lua/balancer.lua`.
 
-#### nginx 里 balancer_by_lua 逻辑
+#### balancer_by_lua_block 是怎么回事 ?
 
-下面是 `nginx.tmpl` 中 `balancer` 的定义:
+`balancer_by_lua_block` 是一个支持自定义负载均衡器的指令, 通常基于 nginx 的服务发现就是通过该指令实现的.
+
+开发时一定要注意事项, balancer_by_lua_block 只是通过自定义负载均衡算法获取 peer 后端地址, 接着通过 `balancer.set_current_peer(ip, port)` 进行赋值. 后面连接的建立，连接池维护，数据拷贝转发等流程统统不在这里，而是由 nginx 内部 upstream 转发逻辑实现.
+
+一句话，nginx 只是调用 `balancer_by_lua_block` 获取理想的后端地址而已.
+
+下面是使用 `balancer_by_lua_block` 实现调度地址池的例子:
+
+```c
+upstream backend{
+    server 0.0.0.0;
+    
+    balancer_by_lua_block {
+        local balancer = require "ngx.balancer"
+        local host = {"s1.xiaorui.cc", "s2.xiaorui.cc"}
+        local backend = ""
+        local port = ngx.var.server_port
+        local remote_ip = ngx.var.remote_addr
+        local key = remote_ip..port
+        
+        # 使用地址 hash 调度算法
+        local hash = ngx.crc32_long(key);
+        hash = (hash % 2) + 1
+        backend = host[hash]
+        ngx.log(ngx.DEBUG, "ip_hash=", ngx.var.remote_addr, " hash=", hash, " up=", backend, ":", port)
+        
+        # 配置后端地址, nginx 进行转发时依赖该地址
+        local ok, err = balancer.set_current_peer(backend, port)
+        if not ok then
+            ngx.log(ngx.ERR, "failed to set the current peer: ", err)
+            return ngx.exit(500)
+        end
+    }
+}
+
+server {
+	listen 80;
+	server_name xiaorui.cc
+	location / {
+		proxy_pass http://backend;
+	}
+}
+```
+
+lua-nginx-module 项目中关于 balancer_by_lua_block 实现:
+
+[https://github.com/openresty/lua-nginx-module#balancer_by_lua_block](https://github.com/openresty/lua-nginx-module#balancer_by_lua_block)
+
+#### 在 nginx 里加入 balancer_by_lua_block 指令
+
+在 `nginx.tmpl` 中加入了 `balancer_by_lua_block` 指令, 所以不管是 http 和 stream 段里的 upstream 转发, 不再走 server 配置, 而是走 `balancer_by_lua_block` 自定义流程.
 
 ```c
 http {
     upstream upstream_balancer {
-	// 只是占位符, openretry 优先走 balancer_by_lua 逻辑块.
+	    // 只是占位符, openretry 优先走 balancer_by_lua 逻辑块.
         server 0.0.0.1; # placeholder
 
         balancer_by_lua_block {
@@ -960,7 +1010,7 @@ http {
 
 stream {
     upstream upstream_balancer {
-	// 同上, 只是占位符, 避免 nginx -t 检测出错.
+	    // 同上, 只是占位符, 避免 nginx -t 检测出错.
         server 0.0.0.1:1234; # placeholder
 
         balancer_by_lua_block {
@@ -1278,11 +1328,11 @@ chash.lua
 
 不管是 nginx 和 openresty 都只支持配置的 reload 热加载, 不支持动态更新的. 但社区中基于 openresty 的 kong 和 apisix 都支持多源的动态更新配置, 社区中也有支持动态更新的 lua 模块可以使用.
 
-当 nginx 作为 k8s ingress 角色时, 遇到频繁变更 service endpoints 的场景下, nginx reload 开销不会小的, 每次都需要 new worker 及 kill old worker, 旧 worker 的长请求不断又是个问题. 新 worker 是新的子进程没法继承旧 worker 的连接池, 所以需要重新建连连接和维护 upstream 连接池, 这都会影响性能和时延 latency.
+当 nginx 作为 ingress 角色时, 遇到频繁变更 service endpoints 的场景下, nginx reload 开销不会小的, 每次都需要 new worker 及 kill old worker, 旧 worker 的长请求不断又是个问题. 新 worker 是新的子进程没法继承旧 worker 的连接池, 所以需要重新建连连接和维护 upstream 连接池, 这都会影响性能和时延 latency.
 
 如果 nginx 不支持动态更新, 在一个大集群的的上下线会引发 ingress-nginx 不断的 reload.
 
-在 k8s ingress-nginx 支持 upstream 和证书动态更新后, 新配置的加载开销会小很多. 只需要把更新的配置通知给 openresty 的动态配置接口就可以了. balancer.lua 模块会维护每个 backend 地址池的负载均衡逻辑.
+在 ingress 支持 upstream 和证书动态更新后, 新配置加载的开销会小很多. 只需要把更新的配置通知给 openresty 的动态配置接口就可以了. balancer.lua 模块会维护每个 backend 地址池的负载均衡逻辑.
 
 ## 总结 
 
