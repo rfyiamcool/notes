@@ -6,7 +6,7 @@
 
 ### kubernetes
 
-![https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_76.png](https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_76.png)
+<img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_76.png" width="50%">
 
 - [源码分析 kubernetes coredns 插件服务发现及解析的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_coredns_code.md)
 
@@ -38,7 +38,7 @@
 
 ### traefik
 
-![https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_11.png](https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_11.png)
+<img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_11.png" width="50%">
 
 - [traefik 设计实现之 http、http2 和 grpc 代理](https://github.com/rfyiamcool/notes/blob/main/traefik_http_grpc_proxy.md)
 
@@ -48,7 +48,7 @@
 
 ### other
 
-![https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_53.png](https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_53.png)
+<img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_53.png" width="50%">
 
 - [golang wal 预写日志的设计实现](https://github.com/rfyiamcool/notes/blob/main/golang_wal_code.md)
 
