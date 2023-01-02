@@ -1,4 +1,4 @@
-## Gotify 消息推送系统的设计实现
+## 基于 golang 的消息推送系统 gotify 的设计实现原理
 
 ### gotify 架构设计
 
