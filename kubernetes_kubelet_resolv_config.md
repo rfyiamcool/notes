@@ -1,4 +1,4 @@
-## 源码分析 kubelet pod 生成使用 coredns 的 resolv.conf 配置原理
+## 源码分析 kubelet pod 生成 coredns resolv.conf 配置原理
 
 本文分析 k8s pod 容器内的域名解析配置文件 `resolv.conf` 如何生成, 被如何在容器内创建.
 
@@ -10,7 +10,7 @@
 
 在分析 kubelet 如何为 pod 生成 resolv.conf 之前, 需要先理解 pod dnspolicy 几种策略.
 
-Kubernetes 中 Pod 的 DNS 策略有四种类型。
+Kubernetes 中 Pod 的 DNS 策略有四种类型:
 
 - Default: Pod 使用宿主机的 DNS 配置 ;
 - ClusterFirst: K8s 的默认设置, 先在 K8s 集群配置的 coreDNS 中查询，查不到的再去继承自主机的上游 nameserver 中查询 ;
