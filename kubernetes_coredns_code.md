@@ -1,4 +1,4 @@
-## 源码分析 kubernetes coredns 插件服务发现及解析的实现原理
+## 源码分析 kubernetes coredns 插件开发和服务发现的实现原理
 
 Kubernetes Coredns controller 控制器是用来监听 kube-apiserver 获取 service 等资源配置, 资源发生变更时修改内存里的缓存. 当 coredns server 收到 dns query 请求时, 根据请求的域名在本地缓存 indexer 中找到对象, 组装记录后并返回, 完成域名解析.
 
