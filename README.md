@@ -8,6 +8,8 @@
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_76.png" width="35%">
 
+- [源码分析 kubelet pod 生成使用 coredns 的 resolv.conf 配置原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_resolv_config.md)
+
 - [源码分析 kubernetes coredns 插件服务发现及解析的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_coredns_code.md)
 
 - [源码分析 kubernetes ingress nginx 动态更新的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_ingress_nginx_controller_dynamic_update_code.md)
