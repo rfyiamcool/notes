@@ -1028,4 +1028,6 @@ informer.Run(shopCh)
 
 ## 总结
 
+不再复述.
+
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301060708660.png)
