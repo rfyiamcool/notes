@@ -13,13 +13,16 @@
 - storeIndex 倒排索引的实现原理
 - threadSafeMap 缓存的实现原理
 - controller 控制的实现原理
+- list/watch 拉取监听原理
 - informer 整合所有组件实现 informer
 
-[深入源码分析 kubernetes client-go informer 机制的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_client_go_informer.md)
+[深入源码分析 kubernetes client-go list-watch 和 informer 机制的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_client_go_informer.md)
 
 ## sharedIndexInformer
 
-`sharedIndexInformer` 相比普通的 informer 来说, 可以共享 reflector 反射器, 业务代码可以注册多个 resourceEventHandler 方法, 无需重复创建 informer 做监听及事件注册.
+`sharedIndexInformer` 相比普通的 informer 来说, 可以共享 reflector 反射器, 业务代码可以注册多个 resourceEventHandler 方法, 无需重复创建 informer 做监听及事件注册. 
+
+如果相同资源实例化多个 informer, 那么每个 informer 都有一个 reflector 和 store. 不仅会有数据序列化的开销, 而且缓存 store 不能复用, 可能一个对象存在多个 informer 的 store 里. 
 
 下面 `sharedIndexInformer` 简化的实现原理架构图.
 
