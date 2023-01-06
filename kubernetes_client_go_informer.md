@@ -1,4 +1,4 @@
-# 深入源码分析 kubernetes client-go informer 机制的实现原理
+# 深入源码分析 kubernetes client-go list-watch 和 informer 机制的实现原理
 
 本文基于 kubernetes/client-go 的 `v0.26.0` 版本进行分析.
 
@@ -46,7 +46,7 @@ index 就是存储了索引, 其目的就是为了加速数据的检索. 通过�
 
 Reflector 的主要职责是从 k8s 的 apiserver 获取全量及监听增量事件, 把获取到的相关资源类型的增删改 `Add/Update/Delete` 事件写到 DeltaFIFO 递增队列里.
 
-#### 结构体
+### 结构体
 
 下面是 `reflector` 结构体.
 
@@ -63,7 +63,7 @@ type Reflector struct {
 }
 ```
 
-#### 启动 reflector
+### 启动 reflector
 
 启动 ListAndWatch 监听, 一直循环调用直到 stopCh 通知退出.
 
@@ -77,7 +77,7 @@ func (r *Reflector) Run(stopCh <-chan struct{}) {
 }
 ```
 
-#### 监听处理 listAndWatch
+### 监听处理 listAndWatch
 
 首先调用 `list()` 尝试获取某资源相关条件下的所有对象, 并记录当前最新的 `resourceVersion` 版本. 启动一个协程去处理 `resync` 定时同步逻辑, 默认不开启 resync 的, 也没必要开启该功能. 接着通过 `resourceVersion` 和 `timeoutSeconds` 参数实例化一个 watcher 对象, 该 watcher 会去监听 apiserver 提供的 watch 接口, 并把获取的事件往一个 resultChan 里输出. 最后通过 `watchHandler` 方法监听 `watcher.resultChan` 管道, 把拿到的事件扔到 `DeltaFIFO` 队列里.
 
@@ -150,8 +150,6 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 					// 如果返回的错误是 http code 429, 则等待退避时间.
 					<-r.initConnBackoffManager.Backoff().C()
 					continue
-				case apierrors.IsInternalError(err) && retry.ShouldRetry():
-					continue
 				default:
 					...
 				}
@@ -162,7 +160,71 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 }
 ```
 
-`watcherHandler` 的逻辑就是从 watcher 的 ResultChan 管道中获取变更事件, 然后添加到 DeltaFIFO 队列中. store 的 `Add/Update/Delete` 操作其实在 DeltaFIFO 里都是插入的逻辑, 只是插入的事件类型为 `Add/Update/Delete` 里的一个.
+####  list 拉取全量
+
+`list-watch` 中的 `list()` 并不是每次都拉取全量的数据. 第一次拉取时由于 `resourceVersion` 为空, 所以拉取的是全量数据. 当 `list-watch` 出现异常进行重试重连时, `list()` 拉取的 resourceVersion 为上次最新的版本, 这样 list 会获取比该版本更新的所有数据.
+
+```go
+func (r *Reflector) list(stopCh <-chan struct{}) error {
+	var resourceVersion string
+
+	// 创建一个含有上次的 resourceVersion 版本的 options
+	options := metav1.ListOptions{ResourceVersion: r.relistResourceVersion()}
+
+	var list runtime.Object
+	var paginatedResult bool
+
+	go func() {
+		// 使用 tool/pager 组装分页逻辑
+		pager := pager.New(pager.SimplePageFunc(func(opts metav1.ListOptions) (runtime.Object, error) {
+			return r.listerWatcher.List(opts)
+		}))
+
+		// 调用 pager.List 获取数据
+		list, paginatedResult, err = pager.List(context.Background(), options)
+		// 如果过期或者不合法 resourceversion 则进行重试.
+		if isExpiredError(err) || isTooLargeResourceVersionError(err) {
+			r.setIsLastSyncResourceVersionUnavailable(true)
+			list, paginatedResult, err = pager.List(context.Background(), metav1.ListOptions{ResourceVersion: r.relistResourceVersion()})
+		}
+		close(listCh)
+	}()
+
+	if options.ResourceVersion == "0" && paginatedResult {
+		r.paginatedResult = true
+	}
+
+	// 获取当前最新的版本
+	listMetaInterface, err := meta.ListAccessor(list)
+	resourceVersion = listMetaInterface.GetResourceVersion()
+
+	// 转换数据结构
+	items, err := meta.ExtractList(list)
+
+	// 这里很关键, 把 items 数据同步到 store 里.
+	if err := r.syncWith(items, resourceVersion); err != nil {
+		return fmt.Errorf("unable to sync list result: %v", err)
+	}
+
+	// 更新 resourceVersion 
+	r.setLastSyncResourceVersion(resourceVersion)
+	return nil
+}
+
+func (r *Reflector) syncWith(items []runtime.Object, resourceVersion string) error {
+	found := make([]interface{}, 0, len(items))
+	for _, item := range items {
+		found = append(found, item)
+	}
+
+	// 使用 store replace 写到队列中, 其过程还是较为复杂的.
+	return r.store.Replace(found, resourceVersion)
+}
+```
+
+####  watcherHandler
+
+`watcherHandler` 的逻辑是从 watcher 的 ResultChan 管道中获取变更事件, 然后添加到 DeltaFIFO 队列中. store 的 `Add/Update/Delete` 操作其实在 DeltaFIFO 里都是插入的逻辑, 只是插入的事件类型为 `Add/Update/Delete` 里的一个.
 
 ```go
 // watchHandler watches w and sets setLastSyncResourceVersion
@@ -236,7 +298,7 @@ loop:
 }
 ```
 
-#### informer watch 的实现原理
+### informer watch 的实现原理
 
 首先当客户端通过 watch api 监听 apiserver 后, apiserver 通过在返回 http header 中配置 `Transfer-Encoding: chunked` 实现分块编码传输. apiserver 把需要传递的数据按照 chunked 块的方法流式写入.
 
@@ -915,6 +977,36 @@ func processDeltas(
 }
 ```
 
+### HasSynced 判断同步完成
+
+`HasSynced` 是用来查询是否已经同步完数据的方法, 通常配合 `cache.WaitForCacheSync` 使用. 虽然在 controller 封装了该方法, 其实实现是在 `DeltaFIFO` 中.
+
+#### 如何判定 `HasSynced()` 就同步完成了, 其依据是什么 ?
+
+首先 `list-watch` 的机制是先 list 拉全量, 再 watch 监听. list 往队列写的 delta 类型是 Replaced, 且会累计加 `initialPopulationCount` 计数. 
+
+当 list 都完事了后, watch 会使用 `Add/Update/Delete/AddIfNotPresent` 写队列时, 这时候 populated 为 true. 并且当 controller.processLoop 从 deltaFIFO 消费数据, 消费次数达到 `initialPopulationCount` 时可判定同步完成.
+
+**一句话总结:**
+
+当 `list()` 把数据都推到 deltaqueue 里, 然后 `controller.processLoop` 消费完队列中 list() 产生的数据, 那么就认为同步完成了.
+
+```go
+func (c *controller) HasSynced() bool {
+	return c.config.Queue.HasSynced()
+}
+
+func (f *DeltaFIFO) HasSynced() bool {
+	f.lock.Lock()
+	defer f.lock.Unlock()
+	return f.hasSynced_locked()
+}
+
+func (f *DeltaFIFO) hasSynced_locked() bool {
+	return f.populated && f.initialPopulationCount == 0
+}
+```
+
 ## Informer 的实现原理
 
 到现在终于讲到 informer 了. 
@@ -955,6 +1047,11 @@ func main() {
 
 	// 启动 informer
 	go informer.Run(stopCh)
+
+	// 等待同步数据到本地缓存
+	if !cache.WaitForCacheSync(stopCh, c.informer.HasSynced) {
+		return
+	}
 	...
 }
 ```
@@ -1030,6 +1127,34 @@ controller 还会启动一个 processLoop 方法, 其逻辑是从 deltaFIFO 队�
 
 ```go
 informer.Run(shopCh)
+```
+
+### WaitForCacheSync
+
+`WaitForCacheSync` 用来等待 informer 同步完成. 其内部逻辑是每隔 `100ms` 调用传入的 `HasSynced()` 方法, 直到同步完成才退出. 
+
+`cache.WaitForCacheSync(stopCh, c.informer.HasSynced)`
+
+```go
+const syncedPollPeriod = 100 * time.Millisecond
+
+func WaitForCacheSync(stopCh <-chan struct{}, cacheSyncs ...InformerSynced) bool {
+	err := wait.PollImmediateUntil(syncedPollPeriod,
+		func() (bool, error) {
+			for _, syncFunc := range cacheSyncs {
+				if !syncFunc() {
+					return false, nil
+				}
+			}
+			return true, nil
+		},
+		stopCh)
+	if err != nil {
+		return false
+	}
+
+	return true
+}
 ```
 
 ### informer 小结
