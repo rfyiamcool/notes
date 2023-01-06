@@ -414,7 +414,7 @@ func main() {
 	// 启动 informers
 	informers.Start(ctx.Done())
 
-	// 同步数据到本地缓存
+	// 等待同步数据到本地缓存
 	cache.WaitForCacheSync(ctx.Done(), podInformer.HasSynced)
 }
 ```
