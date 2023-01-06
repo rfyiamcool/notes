@@ -8,6 +8,10 @@
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_76.png" width="35%">
 
+- [深入源码分析 kubernetes client-go informer 机制的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_client_go_informer.md)
+
+- [深入源码分析 kubernetes client-go sharedIndexInformer 和 SharedInformerFactory 的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_client_go_shared_informer.md)
+
 - [源码分析 kubelet pod 生成 coredns resolv.conf 配置原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kubelet_resolv_config.md)
 
 - [源码分析 kubernetes coredns 插件开发和服务发现的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_coredns_code.md)
