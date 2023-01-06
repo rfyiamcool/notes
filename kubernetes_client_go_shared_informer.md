@@ -15,7 +15,7 @@
 - controller 控制的实现原理
 - informer 整合所有组件实现 informer
 
-![深入源码分析 kubernetes client-go informer 机制的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_client_go_informer.md)
+[深入源码分析 kubernetes client-go informer 机制的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_client_go_informer.md)
 
 ## sharedIndexInformer
 

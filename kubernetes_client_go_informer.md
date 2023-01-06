@@ -32,13 +32,13 @@ index 就是存储了索引, 其目的就是为了加速数据的检索. 通过�
 
 为了更好的理解 informer 的设计, 所以画了一个简化的 informer 架构图 ( 忽略了各个组件内部的设计 ). 
 
-![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301060708660.png)
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301062017062.png)
 
 #### sharedIndexInformer 和 SharedInformerFactory 的实现原理
 
 因本文篇幅略长, 所以把 `sharedIndexInformer` 和 `SharedInformerFactory` 的实现原理放到这里.
 
-![深入源码分析 kubernetes client-go sharedIndexInformer 和 SharedInformerFactory 的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_client_go_shared_informer.md)
+[深入源码分析 kubernetes client-go sharedIndexInformer 和 SharedInformerFactory 的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_client_go_shared_informer.md)
 
 ## Reflector 的实现原理
 
@@ -656,13 +656,13 @@ func (i *storeIndex) getKeysByIndex(indexName, indexedValue string) (sets.String
 }
 ```
 
-## threadSafeMap
+## threadSafeMap 缓存资源对象的原理
 
-`threadSafeMap` 用来维护索引和对象缓存的类, 索引是使用 `storeIndex` 实现的, 对象缓存使用 `map[string]interface{}` 字典实现. 
+`threadSafeMap` 用来维护索引和缓存资源对象的, 索引是使用 `storeIndex` 实现的, 资源对象的缓存则使用 `map[string]interface{}` 字典实现. 
 
 需要注意的是 storeIndex 索引类一般不会在外部直接使用, 而是封装在 `threadSafeMap` 安全存储里. `threadSafeMap` 方法内部实现了 Add/Update/Delete 方法, 这类修改操作时不仅会从缓存中操作对象, 而且会对索引进行增删改. 另外 ByIndex 实现了从 indexer 中获取匹配索引的 names, 然后从缓存中获取匹配 names 的资源对象.
 
-代码位置: `tools/cache/thread_safe_store.go`
+threadSafeMap 的代码位置: `tools/cache/thread_safe_store.go`
 
 ### 结构体定义
 
@@ -769,7 +769,17 @@ func (c *threadSafeMap) AddIndexers(newIndexers Indexers) error {
 ...
 ```
 
-## controller
+### threadSafeMap 小结
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301062003821.png)
+
+以缓存索引条件为 `labels.webserver = nginx` 的 pods 为例. 
+
+当需要读取 `labels.webserver = nginx` 的 pods 对象时, 先通过 threadSafeMap 的 storeIndex 获取符合条件的 pods 名字集合, 然后在从 threadSafeMap 的 items 里获取 pod 对象后返回.
+
+而写流程的话, 先判断是否需要更新, 无需更新则直接建立索引, 并缓存对象. 如果需要更新, 则需求先清理以前的缓存, 再重建新对象的缓存, 最后覆盖缓存对象.
+
+## controller 控制器实现原理
 
 Controller 作为中心的控制器, 连接了 Reflector / DeltaFIFO / Indexer / Store 组件. 其内部逻辑会实例化 reflector, 然后启动 reflector, 接着使用 processLoop 来从 deltaFIFO 队列中获取事件.
 
@@ -1024,10 +1034,10 @@ informer.Run(shopCh)
 
 ### informer 小结
 
-单单 informer 的实现是比较简单的, 它的内部依赖 controller 实现 informer 的功能.
+单单由 NewIndexerInformer 创建的 informer 的实现是比较简单的, 它的内部依赖 controller 实现 informer 的功能. controller 又会关联 reflector, deltaFIFO, Store (indexer, threadSafeMap ) 组件之间的协调联动.
 
 ## 总结
 
 不再复述.
 
-![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301060708660.png)
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301062017062.png)
