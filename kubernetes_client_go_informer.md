@@ -1163,6 +1163,6 @@ func WaitForCacheSync(stopCh <-chan struct{}, cacheSyncs ...InformerSynced) bool
 
 ## 总结
 
-不再复述.
+client-go 的 informer 过程实现还是颇为复杂, 主要是其内部由多个组件构成, 组件之间需要控制器来协调. 详细的过程就不在复述了, 可通过下面的流程图加深其印象.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301062017062.png)
