@@ -426,7 +426,7 @@ func main() {
 
 篇幅原因, 这里拿 pods 资源举例说明.
 
-上面的 demoe 中使用 `informers.Core().V1().Pods().Informer()` 可以获取 pods 资源的 informer. 
+上面的 demo 中使用 `informers.Core().V1().Pods().Informer()` 可以获取 pods 资源的 informer. 
 
 其内部调用 factory 的 `InformerFor` 来寻找各个资源类型的 `cache.SharedIndexInformer`. 有则直接返回, 但如果先前没有创建过, 那么就需要调用 `NewFilteredPodInformer` 创建 `SharedIndexInformer` 共享 Informer 了. 
 
@@ -556,8 +556,119 @@ func (f *sharedInformerFactory) WaitForCacheSync(stopCh <-chan struct{}) map[ref
 }
 ```
 
+### informer Lister 的实现原理
+
+使用 `SharedInformerFactory` 不仅可以拿到共享的 informer 实例, 也可以拿到 lister 实例. 
+
+拿下面的 pod 例子举例说明. 通过 lister 实例调用 `Pods()` 获取某个 namespace 下的所有 pods 对象, 通过 `List(labels.Selector)` 可以拿到符合 labels 条件的 pods 集合. 
+
+```go
+func main() {
+	// 实例化 informers 集合对象
+	informers := informers.NewSharedInformerFactory(client, 0)
+
+	// 获取 pod informer
+	podInformer := informers.Core().V1().Pods().Informer()
+
+	// 获取 pod lister 实例
+	podLister := informers.Core().V1().Pods().Lister()
+
+	// 从缓存中获取 pods
+	podLister.List(labels.Everything())
+}
+```
+
+#### 创建 podLister 查询对象
+
+传参 informer indexer 存储创建 podLister 对象. 这里的 indexer 底层就是 threadSafeMap.
+
+代码位置: `informers/core/v1/pod.go`
+
+```go
+func (f *podInformer) Lister() v1.PodLister {
+	return v1.NewPodLister(f.Informer().GetIndexer())
+}
+
+// 实例化 podLister 实例
+func NewPodLister(indexer cache.Indexer) PodLister {
+	return &podLister{indexer: indexer}
+}
+```
+
+#### 遍历查找
+
+`Lister` 的实现其实没那么高级, 使用 `cache.ListAll` 遍历 indexer 缓冲的所有对象, 然后挑出符合 labels 条件的 pods 对象. 虽然是 `List()` 是遍历查找的过程, 在本地会产生一点计算压力, 但节省了 apiserver 端的开销, 也减少了因网络访问带来的时延 latency. 
+
+如果自定义的 `k8s operator` 有频繁的 labels 条件查询, 可以增加自定义的索引方法 `indexFunc` 构建倒排索引. 或者通过自定义的 ResourceEventHandler 自定义更好的倒排索引, 毕竟 store.Indexer 模式的索引键是个string, 复杂多重条件下表现力差些意思.
+
+```go
+type podLister struct {
+	// 内置 indexer store 对象
+	indexer cache.Indexer
+}
+
+func (s *podLister) List(selector labels.Selector) (ret []*v1.Pod, err error) {
+	// 传递 indexer, selector, 回调方法
+	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
+		// 把符合条件的 pod 放到 ret 里
+		ret = append(ret, m.(*v1.Pod))
+	})
+	return ret, err
+}
+
+func (s *podLister) Pods(namespace string) PodNamespaceLister {
+	// 先从 store.index 里获取获取相关的索引对应的 names,
+	// 再从 threadSafeMap 的 items 缓存里通过 names 获取对象集合.
+	return podNamespaceLister{indexer: s.indexer, namespace: namespace}
+}
+```
+
+下面是 `ListAll()` 遍历匹配的实现过程.
+
+代码位置: `tools/cache/listers.go`
+
+```go
+type AppendFunc func(interface{})
+
+func ListAll(store Store, selector labels.Selector, appendFn AppendFunc) error {
+	selectAll := selector.Empty()
+	// store.List 的内部实现是加锁, 然后把所有的对象放到 slice 里返回.
+	for _, m := range store.List() {
+		// 空的 selector
+		if selectAll {
+			appendFn(m)
+			continue
+		}
+
+		metadata, err := meta.Accessor(m)
+		// 满足匹配条件则回调添加
+		if selector.Matches(labels.Set(metadata.GetLabels())) {
+			appendFn(m)
+		}
+	}
+	return nil
+}
+```
+
+下面是 `store.List` 的实现.
+
+代码位置: `tools/cache/thread_safe_store.go`
+
+```go
+func (c *threadSafeMap) List() []interface{} {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	list := make([]interface{}, 0, len(c.items))
+	for _, item := range c.items {
+		list = append(list, item)
+	}
+	return list
+}
+```
+
 ## 总结
 
-不再复述.
+到此 sharedIndexInformer 和 SharedInformerFactory 的实现过程分析完了, 不在详细的复述, 可通过下面的流程图加深其印象.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301061840196.png)
