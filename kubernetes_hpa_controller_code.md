@@ -1,12 +1,14 @@
 ## 源码分析 kubernetes hpa controller 水平自动扩缩容的实现原理
 
+基于 kubernetes `v1.27.0` 版本进行 hpa 源码分析.
+
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301081419964.png)
 
 Kubernetes 的 HorizontalPodAutoscaler (hpa) 组件可以根据目标的资源使用率 (cpu, mem 等等), 动态的资源对象进行的合理扩缩容. hpa 通常是对 deployment 和 replicaset 资源进行自动伸缩. 
 
 比如, 当 deployment 关联的 pods 负载超过阈值时, hpa 对其进行动态扩容, 但扩容的副本数不能超过 `maxReplicas`. 反之, 如果 pods 负载减少, 则进行动态缩容.
 
-### hpa 的例子
+### hpa 的配置例子
 
 分析 hpa 源码之前, 需要先理解 hpa 的配置选项, 不然不好理解后面的代码分析.
 
