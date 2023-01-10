@@ -1,12 +1,33 @@
-# 源码分析 kubernetes apisix ingress controller 控制器的设计实现 
+# 源码分析 kubernetes apisix ingress controller 控制器的实现原理
 
-apisix ingress controller 的流程简化后大概这样.
+apisix ingress 相比 nginx ingress 来说有太多的优势, apisix 可以做到全动态配置加载, 而 nginx ingres 只能做到部分动态加载. 另外 apisix 有更丰富的插件可以使用, 不像 nginx ingress 不易扩展插件.
+
+apisix ingress controller 相比 nginx ingrss controller 实现要简单一些. apisix ingress controller 只需监听 k8s 内置和 crd 资源, 当有事件变更时, 则向 apisix admin api 发起配置变更请求即可. 到此 apisix ingress 控制面的流程完成了, 后面 apisix admin 把收到配置写到 etcd 里. 其他作为数据面的 apisix 监听到 etcd 的配置变更后, 进行动态配置加载. 
+
+需要关注的是, nginx ingress controller 是不区分控制面和数据面, 每个 nginx ingress 实例不仅是 controller 控制器角色, 而且也是 nginx server 角色. 当配置发生变更时, nginx ingress 会对本容器的 nginx 进程进行维护, 对于 endpoints 变更则可以配合 `balancer_by_lua` 进行 upstream 配置的动态更新.
+
+如果对 nginx ingress controller 实现原理感兴趣, 则可以点击下面连接. 
+
+- [源码分析 kubernetes ingress nginx controller 控制器的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_ingress_nginx_controller_code.md)
+- [源码分析 kubernetes ingress nginx 动态更新的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_ingress_nginx_controller_dynamic_update_code.md)
+
+## 项目介绍
+
+apisix ingress controller 项目地址.
+
+[https://github.com/apache/apisix-ingress-controller](https://github.com/apache/apisix-ingress-controller)
+
+**apisix ingress controller 架构图**
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301102333471.png)
+
+**apisix ingress controller 简化流程图**
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/Jietu20230110-230003.jpg)
 
 ## 入口
 
-废话不多说, apisix ingress controller 的启动是这样推进的.
+废话不多说, apisix ingress controller 的启动是这样推进的, main/cobra/flag 没什么可说的.
 
 ```c
 main.go -> cmd/ingress/ingress.go -> pkg/providers/controller.go
