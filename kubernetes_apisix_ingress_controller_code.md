@@ -1,12 +1,14 @@
 # 源码分析 kubernetes apisix ingress controller 控制器的实现原理
 
-apisix ingress 相比 nginx ingress 来说有太多的优势, apisix 可以做到全动态配置加载, 而 nginx ingres 只能做到部分动态加载. 另外 apisix 有更丰富的插件可以使用, 不像 nginx ingress 不易扩展插件.
+apisix ingress 相比 nginx ingress 来说还是有些优势, apisix 可以做到全动态配置加载, 而 nginx ingres 只能做到部分动态加载. apisix 在配置上相当的灵活, 而 nginx 的配置相对差点意思. 还有 apisix 有更丰富的插件可以使用, 不像 nginx ingress 不易扩展插件. 至于性能上来说, apisix 在同资源配比下, 开销要比 ingress nginx 多一点, 毕竟其内部调用 lua 指令要比 nginx-ingress 内的 nginx 多一些. nginx ingress 里的 nginx 也内置了一些 lua 逻辑, 比如 balancer 和 metrics 等都是由 lua module 实现.
 
 apisix ingress controller 相比 nginx ingrss controller 实现要简单一些. apisix ingress controller 只需监听 k8s 内置和 crd 资源, 当有事件变更时, 则向 apisix admin api 发起配置变更请求即可. 到此 apisix ingress 控制面的流程完成了, 后面 apisix admin 把收到配置写到 etcd 里. 其他作为数据面的 apisix 监听到 etcd 的配置变更后, 进行动态配置加载. 
 
 需要关注的是, nginx ingress controller 是不区分控制面和数据面, 每个 nginx ingress 实例不仅是 controller 控制器角色, 而且也是 nginx server 角色. 当配置发生变更时, nginx ingress 会对本容器的 nginx 进程进行维护, 对于 endpoints 变更则可以配合 `balancer_by_lua` 进行 upstream 配置的动态更新.
 
-如果对 nginx ingress controller 实现原理感兴趣, 则可以点击下面连接. 
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301110813985.png)
+
+如果对 nginx ingress controller 实现原理感兴趣, 则可以点击本人先前写过的文章. 
 
 - [源码分析 kubernetes ingress nginx controller 控制器的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_ingress_nginx_controller_code.md)
 - [源码分析 kubernetes ingress nginx 动态更新的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_ingress_nginx_controller_dynamic_update_code.md)
@@ -25,17 +27,15 @@ apisix ingress controller 项目地址.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/Jietu20230110-230003.jpg)
 
-## 入口
+## 启动控制器
 
-废话不多说, apisix ingress controller 的启动是这样推进的, main/cobra/flag 没什么可说的.
+apisix ingress controller 启动阶段调用关系如下, main/cobra/flag 没什么可说的.
 
 ```c
 main.go -> cmd/ingress/ingress.go -> pkg/providers/controller.go
 ```
 
-## 启动控制器
-
-apisix ingress controller 也是支持高可用性的, 其实现方法跟 k8s 中其他 controller 一样, 都是依赖 leaderelection 选举实现的, 拿到 leader 的实例可以进行同步操作. 
+`Run()` 是 apisix ingress controller 的启动入口, 该控制器也是支持高可用性的, 实现方法跟其他 k8s 中的 controller 一样, 都是依赖 client-go 的 leaderelection 选举实现的, 拿到 leader 的实例可以进行同步操作, 而拿不到 leader 则会周期重试. 这里跟其他控制器不同的在于 leaderelection 注册的 `OnStoppedLeading` 方法, 在 k8s 的 kube-scheduler 和 kube-controller-manager 组件当丢失 leader 后, 会在刷新日志后退出进程. 而 apisix ingress 则通过 ctx 来处理.
 
 ```go
 func (c *Controller) Run(stop chan struct{}) error {
@@ -239,9 +239,11 @@ func (c *Controller) run(ctx context.Context) {
 }
 ```
 
-## ingress provider
+## ingress provider 原理
 
-ingress provider 简化后的流程.
+apisix ingress 会通过 informer 监听 ingress 对象, 通过该 ingress 对象转换为 ingress 内置的 ssl/upstream/route/plugin 配置对象, 在配置校验通过后, 通过 http restful api 对 apisix admin api 进行请求.
+
+下面为 ingress provider 简化后流程.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301102308817.png)
 
@@ -472,21 +474,25 @@ func (c *ingressController) sync(ctx context.Context, ev *types.Event) error {
 ```go
 func SyncManifests(ctx context.Context, apisix apisix.APISIX, clusterName string, added, updated, deleted *Manifest) error {
 	if added != nil {
+		// 创建证书配置
 		for _, ssl := range added.SSLs {
 			if _, err := apisix.Cluster(clusterName).SSL().Create(ctx, ssl); err != nil {
 				merr = multierror.Append(merr, err)
 			}
 		}
+		// 创建转发配置
 		for _, u := range added.Upstreams {
 			if _, err := apisix.Cluster(clusterName).Upstream().Create(ctx, u); err != nil {
 				merr = multierror.Append(merr, err)
 			}
 		}
+		// 创建插件配置
 		for _, pc := range added.PluginConfigs {
 			if _, err := apisix.Cluster(clusterName).PluginConfig().Create(ctx, pc); err != nil {
 				merr = multierror.Append(merr, err)
 			}
 		}
+		// 创建路由相关配置
 		for _, r := range added.Routes {
 			if _, err := apisix.Cluster(clusterName).Route().Create(ctx, r); err != nil {
 				merr = multierror.Append(merr, err)
@@ -495,21 +501,25 @@ func SyncManifests(ctx context.Context, apisix apisix.APISIX, clusterName string
 		...
 	}
 	if updated != nil {
+		// 更新证书配置
 		for _, ssl := range updated.SSLs {
 			if _, err := apisix.Cluster(clusterName).SSL().Update(ctx, ssl); err != nil {
 				merr = multierror.Append(merr, err)
 			}
 		}
+		// 更新转发配置
 		for _, r := range updated.Upstreams {
 			if _, err := apisix.Cluster(clusterName).Upstream().Update(ctx, r); err != nil {
 				merr = multierror.Append(merr, err)
 			}
 		}
+		// 更新插件配置
 		for _, pc := range updated.PluginConfigs {
 			if _, err := apisix.Cluster(clusterName).PluginConfig().Update(ctx, pc); err != nil {
 				merr = multierror.Append(merr, err)
 			}
 		}
+		// 更新路由相关配置
 		for _, r := range updated.Routes {
 			if _, err := apisix.Cluster(clusterName).Route().Update(ctx, r); err != nil {
 				merr = multierror.Append(merr, err)
@@ -568,7 +578,9 @@ func (r *routeClient) Create(ctx context.Context, obj *v1.Route) (*v1.Route, err
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301102305782.png)
 
-apisix ingress controller 内部实现了四个 k8s 内置资源的 provider 逻辑, 分别是 configmap, endpoint, namespace, pod 资源类型. 接口是 provider, 其内部的命名还是叫 controller 控制器.
+apisix ingress controller 内部实现了四个 k8s 内置资源的 provider 逻辑, 分别是 configmap, endpoint, namespace, pod 资源类型. 
+
+> 其接口名字是 provider, 其内部的名字是叫 controller 控制器.
 
 由于篇幅原因, 这里只说下最关键的 endpoint provider, 其他的 provider 不做深入的分析.
 
@@ -913,9 +925,13 @@ apisix ingress 内部使用 `go-memdb` 来构建多索引的缓存. `go-memdb` �
 
 因为 `go-memdb` 作为数据库是支持索引的, 且索引类别很是丰富, 不仅单字段索引, 类似 mysql 的联合索引, 另外如果索引字段为数字, 还可以 range 范围查询.
 
-可以想象如果不使用 go-memdb, 而使用自定义索引映射, 那会相当的麻烦. 比如你的 struct 有 3 个字段, 后面想通过这三个字段的值直接找到对应的对象, 当然不能粗暴遍历, 通常需要多个 map[struct]interface{} 自定义索引关系, 插入还好, 更麻烦的是当触发更新和删除时, 需要维护已建立的索引.
+可以想象如果不使用 go-memdb, 而使用自定义索引映射, 那会相当的麻烦. 比如你的 struct 有 3 个字段, 后面想通过这三个字段的值直接找到对应的对象, 当然不能粗暴遍历, 通常需要多个 `map[struct]interface{}` 自定义索引关系, 插入还好, 更麻烦的是当触发更新和删除时, 需要维护已建立的索引.
 
-一句话, 维护索引关系显得相当麻烦.
+一句话, 手动维护索引关系会相当麻烦.
+
+通过下面的对象映射图, 应该让大家对多索引缓存的设计有更好的理解.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301110844253.png)
 
 ### cache 实现原理
 
