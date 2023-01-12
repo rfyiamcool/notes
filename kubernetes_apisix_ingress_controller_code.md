@@ -1,12 +1,16 @@
-# 源码分析 kubernetes apisix ingress controller 控制器的实现原理
+# 源码分析 kubernetes apisix ingress controller 控制器的实现原理 (一)
 
-apisix ingress 相比 nginx ingress 来说还是有些优势, apisix 可以做到全动态配置加载, 而 nginx ingres 只能做到部分动态加载. apisix 在配置上相当的灵活, 而 nginx 的配置相对差点意思. 还有 apisix 有更丰富的插件可以使用, 不像 nginx ingress 不易扩展插件. 至于性能上来说, apisix 在同资源配比下, 开销要比 ingress nginx 多一点, 毕竟其内部调用 lua 指令要比 nginx-ingress 内的 nginx 多一些. nginx ingress 里的 nginx 也内置了一些 lua 逻辑, 比如 balancer 和 metrics 等都是由 lua module 实现.
+apisix ingress 相比 nginx ingress 来说还是有不少优势, apisix 可以做到全动态配置加载, 而 nginx ingres 只能做到部分动态加载. apisix 在配置上相当的灵活丰富, 而 nginx 的配置相对差点意思. 还有 apisix 有更丰富的插件可以使用, 不像 nginx ingress 不易扩展插件. 
 
-apisix ingress controller 相比 nginx ingrss controller 实现要简单一些. apisix ingress controller 只需监听 k8s 内置和 crd 资源, 当有事件变更时, 则向 apisix admin api 发起配置变更请求即可. 到此 apisix ingress 控制面的流程完成了, 后面 apisix admin 把收到配置写到 etcd 里. 其他作为数据面的 apisix 监听到 etcd 的配置变更后, 进行动态配置加载. 
+至于性能上来说, 在常规场景下 apisix 开销要比 ingress nginx 多一点. 虽然 apsix 做了一系列的深度优化, 但毕竟其内部调用的 lua 指令要比 nginx-ingress 内的 nginx 多一些, 反复切到 lua vm 虚拟机是不可忽略的问题. ingress-nginx 的 nginx 编译时打入了 lua/luajit 支持, 其内部有一些 lua 逻辑, 比如 balancer 和 metrics 等都是由 lua module 实现.
+
+apisix ingress controller 相比 nginx ingress controller 控制器的实现原理要简单一些. apisix ingress controller 只需监听 k8s 内置和自定义 crd 资源, 当有事件变更时, 则向 apisix admin api 发起配置变更请求即可. 到此 apisix ingress 控制面的流程完成了, 后面 apisix admin 把收到配置写到 etcd 里. 其他作为数据面的 apisix 监听到 etcd 的配置变更后, 进行动态配置加载.
 
 需要关注的是, nginx ingress controller 是不区分控制面和数据面, 每个 nginx ingress 实例不仅是 controller 控制器角色, 而且也是 nginx server 角色. 当配置发生变更时, nginx ingress 会对本容器的 nginx 进程进行维护, 对于 endpoints 变更则可以配合 `balancer_by_lua` 进行 upstream 配置的动态更新.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301110813985.png)
+
+> 有趣的是在 2022.12 听过 apisix ingress 团队的分享, 听意思是说当前 apisix ingress 依赖 etcd, 由于 etcd 维护成本问题, 就 ingress 的场景会考虑去掉对 etcd 中间件的依赖. 最后的混合架构跟 nginx ingerss 类似.
 
 如果对 nginx ingress controller 实现原理感兴趣, 则可以点击本人先前写过的文章. 
 
@@ -27,7 +31,7 @@ apisix ingress controller 项目地址.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/Jietu20230110-230003.jpg)
 
-## 启动控制器
+## apisix ingress 启动阶段
 
 apisix ingress controller 启动阶段调用关系如下, main/cobra/flag 没什么可说的.
 
@@ -96,6 +100,7 @@ election:
 	case <-rootCtx.Done():
 		return nil
 	default:
+		// 重新再来边竞争选举
 		goto election
 	}
 }
@@ -127,11 +132,9 @@ func (c *Controller) run(ctx context.Context) {
 	common := &providertypes.Common{
 		ControllerNamespace: c.namespace,
 		ListerInformer:      c.informers,
-		Config:              c.cfg,
 		APISIX:              c.apisix,
 		KubeClient:          c.kubeClient,
 		MetricsCollector:    c.MetricsCollector,
-		Recorder:            c.recorder,
 	}
 
 	// 实例化 namespace provider
@@ -912,156 +915,3 @@ func (u *upstreamClient) Update(ctx context.Context, obj *v1.Upstream) (*v1.Upst
 ## ingress gateway 实现原理
 
 apisix ingress controller 也是支持 k8s gateway 资源处理. 默认不启动, 限于篇幅就不做分析. 
-
-## apisix ingress 多级索引缓存设计
-
-apisix ingress 内部使用 `go-memdb` 来构建多索引的缓存. `go-memdb` 是 hashicorp 社区的一个项目, 该库实现了实现内存级数据库, 支持丰富的索引, 支持多表的事务和多版本控制 mvcc 等.
-
-**go-memdb 的项目地址:**
-
-[https://github.com/hashicorp/go-memdb](https://github.com/hashicorp/go-memdb)
-
-### 为什么使用 `go-memdb` 实现缓存系统 ? 
-
-因为 `go-memdb` 作为数据库是支持索引的, 且索引类别很是丰富, 不仅单字段索引, 类似 mysql 的联合索引, 另外如果索引字段为数字, 还可以 range 范围查询.
-
-可以想象如果不使用 go-memdb, 而使用自定义索引映射, 那会相当的麻烦. 比如你的 struct 有 3 个字段, 后面想通过这三个字段的值直接找到对应的对象, 当然不能粗暴遍历, 通常需要多个 `map[struct]interface{}` 自定义索引关系, 插入还好, 更麻烦的是当触发更新和删除时, 需要维护已建立的索引.
-
-一句话, 手动维护索引关系会相当麻烦.
-
-通过下面的对象映射图, 应该让大家对多索引缓存的设计有更好的理解.
-
-![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301110844253.png)
-
-### cache 实现原理
-
-apisix ingress cache 的 schema 的代码位置.
-
-在 db 里实例化了多个表结构, 每个表里又实例化多个索引映射. 当对 db 进行读写删操作时, `go-memdb` 会自动创建索引.
-
-代码位置: `pkg/apisix/cache/schema.go`
-
-```go
-_schema = &memdb.DBSchema{
-	Tables: map[string]*memdb.TableSchema{
-		"route": {
-			Name: "route",
-			Indexes: map[string]*memdb.IndexSchema{
-				"id": {
-					Name:    "id",
-					Unique:  true,
-					Indexer: &memdb.StringFieldIndex{Field: "ID"},
-				},
-				"name": {
-					Name:         "name",
-					Unique:       true,
-					Indexer:      &memdb.StringFieldIndex{Field: "Name"},
-					AllowMissing: true,
-				},
-				"upstream_id": {
-					Name:         "upstream_id",
-					Unique:       false,
-					Indexer:      &memdb.StringFieldIndex{Field: "UpstreamId"},
-					AllowMissing: true,
-				},
-				...
-			},
-		},
-		"upstream": {
-			Name: "upstream",
-			Indexes: map[string]*memdb.IndexSchema{
-				"id": {
-					Name:    "id",
-					Unique:  true,
-					Indexer: &memdb.StringFieldIndex{Field: "ID"},
-				},
-				"name": {
-					Name:         "name",
-					Unique:       true,
-					Indexer:      &memdb.StringFieldIndex{Field: "Name"},
-					AllowMissing: true,
-				},
-			},
-		},
-		...
-	}
-}
-```
-
-`dbcache` 里面实现了很多 apisix 内置对象的缓存管理, 下面拿 upstream 结构的缓存举例说明.
-
-源码位置: `pkg/apisix/cache/memdb.go`
-
-```go
-type dbCache struct {
-	db *memdb.MemDB
-}
-
-func NewMemDBCache() (Cache, error) {
-	db, err := memdb.NewMemDB(_schema)
-	if err != nil {
-		return nil, err
-	}
-	return &dbCache{
-		db: db,
-	}, nil
-}
-
-// 往 upstream 表里写对象
-func (c *dbCache) InsertUpstream(u *v1.Upstream) error {
-	return c.insert("upstream", u.DeepCopy())
-}
-
-// 调用 memdb 的 insert 写数据
-func (c *dbCache) insert(table string, obj interface{}) error {
-	txn := c.db.Txn(true)
-	defer txn.Abort()
-	if err := txn.Insert(table, obj); err != nil {
-		return err
-	}
-	txn.Commit()
-	return nil
-}
-
-// 从 upstream 表里获取数据
-func (c *dbCache) GetUpstream(id string) (*v1.Upstream, error) {
-	obj, err := c.get("upstream", id)
-	if err != nil {
-		return nil, err
-	}
-	return obj.(*v1.Upstream).DeepCopy(), nil
-}
-
-// tnx.first 是获取第一条数据
-func (c *dbCache) get(table, id string) (interface{}, error) {
-	txn := c.db.Txn(false)
-	defer txn.Abort()
-	obj, err := txn.First(table, "id", id)
-	if err != nil {
-		if err == memdb.ErrNotFound {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	if obj == nil {
-		return nil, ErrNotFound
-	}
-	return obj, nil
-}
-
-// txn.get 可以获取多条数据
-func (c *dbCache) list(table string) ([]interface{}, error) {
-	txn := c.db.Txn(false)
-	defer txn.Abort()
-	iter, err := txn.Get(table, "id")
-	if err != nil {
-		return nil, err
-	}
-	var objs []interface{}
-	for obj := iter.Next(); obj != nil; obj = iter.Next() {
-		objs = append(objs, obj)
-	}
-	return objs, nil
-}
-...
-```
