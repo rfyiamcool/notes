@@ -523,7 +523,6 @@ func (pw *prometheusWrapper) EmitGauge(name string, value interface{}, labels ..
 }
 ```
 
-
 ### 总结
 
 头条开源的 kubebrain 初衷是好的, 可通过自定义存储存储接口, 实现三方数据库的对接, 避免了 etcd 的种种问题. 
