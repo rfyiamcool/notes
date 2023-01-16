@@ -1,10 +1,108 @@
-# 源码分析头条 kubernetes kubebrain 元数据存储的设计实现原理
+# 源码分析头条 kubernetes kubebrain 元数据存储的设计实现原理 (一)
 
-![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301152048964.png)
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301161628893.png)
 
 `kubebrain` 是头条开源的兼容 etcd 接口的 kubernetes 的元数据存储. 众所周知 k8s 元数据都是存在 etcd cluster 中, k8s 中的其他组件需要跟 apisrever 接口对接, 而 apiserver 则跟 etcd 对接, 所有的数据存储都在 etcd 中, 在超大集群下 etcd 带来的压力可想而知.
 
 kubebrain 则去除了对 etcd 的依赖, 在架构可以上可以对接其他自定义分布式数据库. kubebrain 内部实现了 badgerdb 和 tikv 的存储结构. badgerdb 作为单机引擎适用于本地调试, 更推荐使用 tikv 作为数据存储引擎. 另外头条内部则使用 ByteKV 做 kubebrain 的数据存储引擎. ByteKV 未开源, 其架构跟 tikv 差不多. 头条有分享过 ByteKV 的实现原理, 有兴趣的朋友可以找下相关文章.
+
+### 主从架构
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301161649948.png)
+
+kubebrain 虽然是支持分布式横向扩展, 但它内部是分为主从节点的, 原理倒是没什么, 通过分布式锁进行选举, 拿到锁自然为 leader 主节点, 其他实例为 follower 从节点. 主节点可以承接读写请求, 而从节点可以处理读请求, 对于写 和 watch/lease 操作需要代理转发到 leader 节点去处理.
+
+对于 k8s apiserver 来说, 访问任意 kubebrain 节点都可以. 访问主节点时可直接处理请求, 从节点会代理转发到主节点. 另外 kubebrain 在启动 grpc server 时, 注册了 leader 和 memberlist 相关的接口, 客户端可通过这两个接口进行合理调度, 避免每次访问从节点, 减少 follower 节点转发带来的 latency 延迟.
+
+一句话, 当前 kubebrain 是单主架构, 写操作只能到 leader 节点操作, 使用 etcd sdk 对 kubebrain 请求时, kubebrain 发现自身不是 leader 节点时, 会把请求代理转发到 leader 节点上.
+
+#### 为什么需要设计成主从架构?
+
+主要是为了解决多节点集群下 revision 版本号生成和 watch 增量订阅. 后面会分析发号器和 watch 的实现原理.
+
+####  Txn 在主从架构的兼容
+
+下面是 `Txn` 接口里转发逻辑的实现.
+
+```go
+func (s *RPCServer) Txn(ctx context.Context, txn *etcdserverpb.TxnRequest) (*etcdserverpb.TxnResponse, error) {
+	...
+
+	if !s.peers.IsLeader() {
+		// 如果被访问的实例不是 leader, 且开启了转发开关, 则把请求转发到 leader 节点.
+		if s.peers.EtcdProxyEnabled() {
+			return s.peers.Txn(ctx, txn)
+		}
+
+		return nil, status.Errorf(codes.Unavailable, "txn error addr is %s leader %s", s.backend.GetResourceLock().Identity(), s.backend.GetResourceLock().Describe())
+	}
+
+	if put := isCreate(txn); put != nil {
+		response, err = s.backend.Create(ctx, put)
+		if err != nil || !response.Succeeded {
+			failedKey = string(put.Key)
+		}
+	} else if rev, key, ok := isDelete(txn); ok {
+		response, err = s.backend.Delete(ctx, key, rev)
+		methodTag = metrics.Tag("method", "delete")
+		if err != nil || !response.Succeeded {
+			failedKey = string(key)
+		}
+	} else if rev, key, value, lease, ok := isUpdate(txn); ok {
+		response, err = s.backend.Update(ctx, rev, key, value, lease)
+		methodTag = metrics.Tag("method", "update")
+		if err != nil || !response.Succeeded {
+			failedKey = string(key)
+		}
+	}
+
+	...
+
+	return response, err
+}
+```
+
+####  Watch 在主从架构的兼容
+
+下面是 `Watch` 接口里转发逻辑的实现.
+
+源码位置: `pkg/server/etcd/watch.go`
+
+```go
+func (w *watcher) Watch(ctx context.Context, id int64, r *etcdserverpb.WatchCreateRequest) {
+	...
+
+	var ch <-chan []*mvccpb.Event
+	var err error
+
+	// 判断本实例是否是 leader 节点
+	if w.grpcServer.peers.IsLeader() {
+		// 直接调用 watch
+		ch, err = w.backend.Watch(ctx, string(r.Key), uint64(r.StartRevision))
+	} else {
+		// 转发 watch 请求到 leader 实例
+		ch, err = w.grpcServer.peers.Watch(ctx, string(r.Key), uint64(r.StartRevision))
+	}
+
+	...
+
+	for events := range ch {
+		if len(events) == 0 {
+			continue
+		}
+		watchResponse := &etcdserverpb.WatchResponse{
+			Header: &etcdserverpb.ResponseHeader{
+				Revision: events[len(events)-1].Kv.ModRevision,
+			},
+			WatchId: id,
+			Events:  events,
+		}
+		if err := w.watchServer.Send(watchResponse); err != nil {
+			continue
+		}
+	}
+}
+```
 
 ### etcd 存在的性能问题
 
@@ -218,7 +316,7 @@ func (r *Ring) Reset() {
 }
 ```
 
-### leader 
+### leader 选举
 
 首先实现一个 k8s 里锁的接口，kubebrain 的锁是通过 tikv 实现的，然后借助 k8s 的 leaderelection.RunOrDie 方法来拿锁和间隔性的续约.
 
