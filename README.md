@@ -8,6 +8,8 @@
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_76.png" width="35%">
 
+- [源码分析头条 kubernetes kubebrain 元数据存储的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/kubebrain_metadata_for_etcd.md)
+
 - [源码分析 kubernetes client-go workqueue 的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_client_go_workqueue_code.md)
 
 - [源码分析 kubernetes apisix ingress controller 控制器的实现原理 (一)](https://github.com/rfyiamcool/notes/blob/main/kubernetes_apisix_ingress_controller_code.md)
