@@ -8,7 +8,7 @@
 
 ### deque 的设计实现
 
-![http://xiaorui.cc/wp-content/uploads/2022/11/Jietu20221107-110046.jpg](http://xiaorui.cc/wp-content/uploads/2022/11/Jietu20221107-110046.jpg)
+![golang deque](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301172141289.png)
 
 #### 优缺点
 
