@@ -1,15 +1,14 @@
-
-# 源码分析 kubernetes nodeipam controller 控制器的实现原理
+# 源码分析 kubernetes nodeipam controller cidr 地址分配的实现原理
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301191910280.png)
 
-> 基于 kubernetes v1.27.0 进行 nodeipam 源码分析
+> 基于 kubernetes v1.27.0 版本对 nodeipam controller 源码分析
 
 在 k8s 的 `kube-controller-manager` 中 `nodeipam controller` 是用来为 node 节点分配可用的 ip cidr 地址段的控制器, 每个 node 拿到的 cidr 地址范围不会冲突的. 在为 node 分配地址段后, k8s kubelet 根据 node 关联的 cidr 地址段来为 pod 添加 ip 地址, 这里的又涉及到 cni 网络插件的调用, 后面再做分析.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301191644957.png)
 
-这里分析下 k8s nodeipam controller 控制器的流程原理. nodeipam controller 控制器启动时通过 `--cluster-cidr`, `--node-cidr-mask-size` 和 `--cidr-allocator-type` 等参数生成 cidr 地址段生成器. 控制器内部又会启动 node informer 来监听 node 对象资源变化, 当触发 node 新增事件时, 为 node 申请分配 cidr 地址段, 然后向 apiserver 请求更新 node podcidrs 配置信息, 当触发删除事件时, 则释放这些 ip cidr 地址段.
+这里分析下 kubernetes nodeipam controller 控制器的流程原理. nodeipam controller 控制器启动时通过 `--cluster-cidr`, `--node-cidr-mask-size` 和 `--cidr-allocator-type` 等参数生成 cidr 地址段生成器. 控制器内部又会启动 node informer 来监听 node 对象资源变化, 当触发 node 新增事件时, 为 node 申请分配 cidr 地址段, 然后向 apiserver 请求更新 node podcidrs 配置信息, 当触发删除事件时, 则释放这些 ip cidr 地址段.
 
 nodeipam 只负责 pod cidr 地址, 至于 service clusterIP cidr 是在 apiserver 负责的.
 
