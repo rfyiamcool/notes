@@ -19,7 +19,7 @@ k8s scheduler 的主要职责是为新创建的 pod 寻找一个最合适的 nod
 
 ## k8s scheduler 启动入口
 
-k8s scheduler 在启动时会调用注册在 cobra 的 `setup` 来初始化 scheduler 调度器对象.
+k8s scheduler 在启动时会调用在 cobra 注册的 `setup` 来初始化 scheduler 调度器对象.
 
 代码位置: `cmd/kube-scheduler/app/server.go`
 
@@ -64,7 +64,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 }
 ```
 
-实例化 kubernetes scheduler 对象.
+实例化 kubernetes scheduler 对象, 初始化流程直接看下面代码.
 
 代码位置: `pkg/scheduler/scheduler.go`
 
@@ -84,8 +84,15 @@ func New(client clientset.Interface,
 		return nil, err
 	}
 
-	podLister := informerFactory.Core().V1().Pods().Lister()
-	nodeLister := informerFactory.Core().V1().Nodes().Lister()
+	// profiles 用来保存不同调度器的 framework 框架, framework 则用来存放 plugin.
+	profiles, err := profile.NewMap(options.profiles, registry, recorderFactory, stopCh,
+		frameworkruntime.WithComponentConfigVersion(options.componentConfigVersion),
+		frameworkruntime.WithClientSet(client),
+		frameworkruntime.WithKubeConfig(options.kubeConfig),
+		frameworkruntime.WithInformerFactory(informerFactory),
+		...
+		...
+	)
 
 	// 实例化快照
 	snapshot := internalcache.NewEmptySnapshot()
@@ -173,6 +180,77 @@ func addAllEventHandlers(
 }
 ```
 
+## scheduler 的选举实现
+
+`kube-scheduler` 跟 k8s 的其他主控组件一样, 也会通过选举 `leaderelection` 机制保证集群只有一个 leader 实例运行调度器, 其他 follower 实例则尝试轮询抢锁直到成功.
+
+源码位置: `cmd/kube-scheduler/app/server.go`
+
+```go
+func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *scheduler.Scheduler) error {
+	...
+
+	waitingForLeader := make(chan struct{})
+	isLeader := func() bool {
+		select {
+		case _, ok := <-waitingForLeader:
+			// if channel is closed, we are leading
+			return !ok
+		default:
+			// channel is open, we are waiting for a leader
+			return false
+		}
+	}
+
+
+	// 启动 informers
+	cc.InformerFactory.Start(ctx.Done())
+
+	// 同步 informer 的数据到本地缓存
+	cc.InformerFactory.WaitForCacheSync(ctx.Done())
+
+	// 如果在配置中启动了选举, 创建选举对象, 注册事件方法, 并启用选举.
+	if cc.LeaderElection != nil {
+		cc.LeaderElection.Callbacks = leaderelection.LeaderCallbacks{
+			OnStartedLeading: func(ctx context.Context) {
+				// 当选举拿到 leader 时, 启动 scheduler 调度器
+				close(waitingForLeader)
+				sched.Run(ctx)
+			},
+			OnStoppedLeading: func() {
+				// 当选举成功但后面又丢失 leader 后, 则退出进程.
+				// 进程退出后, 会被 docker 或 systemd 重新拉起, 尝试拿锁.
+				select {
+				case <-ctx.Done():
+					// We were asked to terminate. Exit 0.
+					os.Exit(0)
+				default:
+					// We lost the lock.
+					klog.ErrorS(nil, "Leaderelection lost")
+					klog.FlushAndExit(klog.ExitFlushTimeout, 1)
+				}
+			},
+		}
+
+		// 构建 leaderelection 对象
+		leaderElector, err := leaderelection.NewLeaderElector(*cc.LeaderElection)
+		if err != nil {
+			return fmt.Errorf("couldn't create leader elector: %v", err)
+		}
+
+		// 启动选举
+		leaderElector.Run(ctx)
+
+		return fmt.Errorf("lost lease")
+	}
+
+	// 如果没有开启选举, 则直接启动 scheduler 调度器.
+	close(waitingForLeader)
+	sched.Run(ctx)
+	return fmt.Errorf("finished without leader elect")
+}
+```
+
 ## scheudler 启动入口
 
 `Run()` 方法是 k8s scheduler 的启动运行入口, 其流程是先启动 queue 队列的 Run 方法, 再异步启动一个协程处理核心调度方法 `scheduleOne`.
@@ -180,6 +258,8 @@ func addAllEventHandlers(
 `schedulingQueue` 的 `Run()` 方法用来监听内部的延迟任务, 把到期的任务放到 activeQ 中.
 
 而 `scheduleOne` 方法用来从优先级队列里获取由 informer 插入的 pod 对象, 调用 `schedulingCycle` 为 pod 选择最优的 node 节点. 如果找到了合适的 node 节点, 则调用 `bindingCycle` 方法来发起 pod 和 node 绑定.
+
+源码位置: `pkg/scheduler/scheduler.go`
 
 ```go
 func (sched *Scheduler) Run(ctx context.Context) {
@@ -1356,7 +1436,7 @@ var nodeResourceStrategyTypeMap = map[config.ScoringStrategyType]scorer{
 }
 ```
 
-k8s scheduler 内置插件的 Filter 过滤方法很好理解, 要么通过, 要么不通过. 而 Score 打分方法则不好理解, 主要单单通过源码不好分析作者为什么要使用那些个计算公式来打分. 结合源码中各个插件的单元测试 ut, 可计算出怎样的参数分分值高.
+k8s scheduler 内置插件的 Filter 过滤方法很好理解, 决定节点是否通过预选. 而 Score 打分方法则不好理解, 但通过源码不好反推打分的计算公式是怎么来的.
 
 ## 总结
 
