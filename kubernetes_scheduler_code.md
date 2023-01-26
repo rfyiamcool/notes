@@ -175,7 +175,11 @@ func addAllEventHandlers(
 
 ## scheudler 启动入口
 
-`Run()` 方法是 k8s scheduler 的启动运行入口, 其内部会循环调用 `scheduleOne` 方法来从优先级队列里获取由 informer 插入的 pod 对象, 调用 `schedulingCycle` 为 pod 选择最优的 node 节点. 如果找到了合适的 node 节点, 则调用 `bindingCycle` 方法来发起 pod 和 node 绑定.
+`Run()` 方法是 k8s scheduler 的启动运行入口, 其流程是先启动 queue 队列的 Run 方法, 再异步启动一个协程处理核心调度方法 `scheduleOne`.
+
+`schedulingQueue` 的 `Run()` 方法用来监听内部的延迟任务, 把到期的任务放到 activeQ 中.
+
+而 `scheduleOne` 方法用来从优先级队列里获取由 informer 插入的 pod 对象, 调用 `schedulingCycle` 为 pod 选择最优的 node 节点. 如果找到了合适的 node 节点, 则调用 `bindingCycle` 方法来发起 pod 和 node 绑定.
 
 ```go
 func (sched *Scheduler) Run(ctx context.Context) {
@@ -210,7 +214,7 @@ func (sched *Scheduler) scheduleOne(ctx context.Context) {
 }
 ```
 
-`NextPod` 其实是 `MakeNextPodFunc` 方法. 从 `PriorityQueue` 队列中获取 pod 对象.
+`NextPod` 底层引用了 `MakeNextPodFunc` 方法, 其内部从 `PriorityQueue` 队列中获取 pod 对象.
 
 ```go
 func MakeNextPodFunc(queue SchedulingQueue) func() *framework.QueuedPodInfo {
@@ -240,6 +244,24 @@ func (p *PriorityQueue) Pop() (*framework.QueuedPodInfo, error) {
 	return pInfo, nil
 }
 ```
+
+## 单实例单协程模型的 schduler 调度器
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301261858892.png)
+
+需要关注的是整个 kubernetes scheduler 调度器只有一个协程处理主调度循环 `scheduleOne`, 虽然 kubernetes scheduler 可以启动多个实例, 但启动时需要 leaderelection 选举, 只有 leader 才可以处理调度, 其他节点作为 follower 等待 leader 失效. 也就是说整个 k8s 集群调度核心的并发度为 1 个. 
+
+云原生社区中有人使用 kubemark 模拟 2000 个节点的规模来压测 kube-scheduler 处理性能及时延, 测试结果是 30s 内完成 15000 个 pod 调度任务. 虽然 kube-scheduler 是单并发模型, 但由于预选和优选都属于计算型任务非阻塞IO, 又有 `percentageOfNodesToScore` 参数优化, 最重要的是创建 pod 的操作通常不会太高并发. 这几点下来单并发模型的 scheduler 也还可以接受的.
+
+### 为什么 scheduler 不支持并发 ?
+
+按照当前 scheudler 调度器的设计原理, 使用预选和优选算法选出最合适的节点, 并发场景下无法保证安全, 比如, 选出的最优节点在并发下会被多个 pod 绑定.
+
+### 使用自定义调度器进行并发调度 ?
+
+k8s 默认的调度器为 `default-scheduler`, 而使用相同调度器只能单并发处理调度. 但是可以使用自定义实现调度器的方案, 在创建 pod 时指定不同的调度器算法 `pod.Spec.schedulerName = xiaorui.cc`, 这样可以使不同调度器的 kube-schedueler 并行调度起来, 各自按照调度算法来调度, 运行互不影响.
+
+当然大多数公司没这个必要.
 
 ## schedulingCycle 核心调度周期的实现
 
@@ -456,11 +478,15 @@ framework 的并发库也是通过封装 `workqueue.ParallelizeUntil` 来实现�
 
 `k8s.io/client-go/util/workqueue/parallelizer.go`
 
-#### numFeasibleNodesToFind 计算合理的节点扫描数
+#### numFeasibleNodesToFind 计算多少节点参与预选
 
-`numFeasibleNodesToFind` 方法会根据当前集群的节点数计算出合理的节点扫描数量, 也就是把参与 Filter 的节点范围缩小, 无需全面扫描所有的节点, 这样避免 k8s 集群 nodes 太多时, 造成一些无效的计算资源开销.
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301261120469.png)
 
-`numFeasibleNodesToFind` 策略是这样的, 当集群节点小于 100 时, 则使用集群节点数作为扫描数, 当大于 100 时, 则使用下面的公式计算扫描数. scheudler 的 `percentageOfNodesToScore` 参数默认为 0, 源码中会赋值为 50 %.
+🤔 考虑一个问题, 当 k8s 的 node 节点特别多时, 这些节点都要参与预先的调度过程么 ? 比如大集群有 2500 个节点, 注册的插件有 10 个, 那么 筛选 Filter 和 打分 Score 过程需要进行 2500 * 10 * 2 = 50000 次计算, 最后选定一个最高分值的节点来绑定 pod. k8s scheduler 考虑到了这样的性能开销, 所以加入了百分比参数控制参与预选的节点数.
+
+`numFeasibleNodesToFind` 方法根据当前集群的节点数计算出参与预选的节点数量, 把参与 Filter 的节点范围缩小, 无需全面扫描所有的节点, 这样避免 k8s 集群 nodes 太多时, 造成无效的计算资源开销.
+
+`numFeasibleNodesToFind` 策略是这样的, 当集群节点小于 100 时, 集群中的所有节点都参与预选. 而当大于 100 时, 则使用下面的公式计算扫描数. scheudler 的 `percentageOfNodesToScore` 参数默认为 0, 源码中会赋值为 50 %.
 
 ```
 numAllNodes * (50 - numAllNodes/125) / 100
@@ -600,7 +626,7 @@ func selectHost(nodeScores []framework.NodePluginScores) (string, error) {
 
 ### PriorityQueue 的实现
 
-`PriorityQueue` 用来实现优先级队列, informer 会条件 pod 到 priorityQueue 队列中, schedulerOne 会从该队列中 pop 对象. 在创建延迟队列时传入一个 `less` 比较方法, 时间最小的 podInfo 放在 heap 的最顶端.
+`PriorityQueue` 用来实现优先级队列, informer 会条件 pod 到 priorityQueue 队列中, `scheduleOne` 会从该队列中 pop 对象. 在创建延迟队列时传入一个 `less` 比较方法, 时间最小的 podInfo 放在 heap 的最顶端.
 
 `flushBackoffQCompleted` 会不断的检查 backoff heap 堆顶的元素是否满足条件, 当满足条件把 pod 对象扔到 activeQ 队里, 并激活条件变量. 这里没有采用监听等待堆顶到期时间的方法，而是每隔一秒去检查堆顶的 podInfo 是否已到期 `isPodBackingoff`.
 
