@@ -50,7 +50,6 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 	// 构建 scheduler 对象
 	sched, err := scheduler.New(cc.Client,
 		cc.InformerFactory,
-		cc.DynInformerFactory,
 		recorderFactory,
 		ctx.Done(),
 		...
@@ -203,7 +202,7 @@ func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *
 	}
 
 
-	// 启动 informers
+	// 启动 informers, 这里只有 pod 和 node.
 	cc.InformerFactory.Start(ctx.Done())
 
 	// 同步 informer 的数据到本地缓存
@@ -250,6 +249,10 @@ func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *
 	return fmt.Errorf("finished without leader elect")
 }
 ```
+
+关于 client-go LeaderElection 选举的实现原理, 请点击下面连接. 
+
+[https://github.com/rfyiamcool/notes/blob/main/kubernetes_leader_election_code.md](https://github.com/rfyiamcool/notes/blob/main/kubernetes_leader_election_code.md)
 
 ## scheudler 启动入口
 
