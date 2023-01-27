@@ -50,6 +50,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 	// 构建 scheduler 对象
 	sched, err := scheduler.New(cc.Client,
 		cc.InformerFactory,
+		cc.DynInformerFactory,
 		recorderFactory,
 		ctx.Done(),
 		...
@@ -1082,7 +1083,7 @@ func getDefaultPlugins() *v1beta3.Plugins {
 }
 ```
 
-这里选择 `NodeName`, `ImageLocality` 和 `NodeResourcesFit` 插件来分析的插件实现原理.
+这里选择 `NodeName`, `ImageLocality`, `NodeResourcesFit` 和 `NodeAffinity` 插件来分析的插件实现原理.
 
 ### NodeName 插件的实现原理
 
@@ -1440,6 +1441,134 @@ var nodeResourceStrategyTypeMap = map[config.ScoringStrategyType]scorer{
 ```
 
 k8s scheduler 内置插件的 Filter 过滤方法很好理解, 决定节点是否通过预选. 而 Score 打分方法则不好理解, 但通过源码不好反推打分的计算公式是怎么来的.
+
+### NodeAffinity 节点亲和性插件原理
+
+NodeAffinity 是实现节点亲和性的插件, 主要实现了 PreFilter, Filter 和 PreScore, Score 四个方法. PreFilter 和 PreScore 在 NodeAffinity 插件里做 state 传递, 这里重点分析 Filter 和 Score 方法实现.
+
+- `Filter` 用来判断传入的 node 是否匹配 pod 的 `RequiredDuringSchedulingIgnoredDuringExecution` 硬亲和配置, 不适配则返回异常.
+
+- `Score` 用来给 node 打分, 如果节点 labels 适配 pod 的 `preferredDuringSchedulingIgnoredDuringExecution`, 则把 spec.nodeAffinity.weight 累加到 score.
+
+首先看下 pod nodeAffinity 节点亲和性的两个参数.
+
+- `RequiredDuringSchedulingIgnoredDuringExecution` 参数表示调度器只会调度到符合 pod 要求的节点上, 没有符合要求的节点则不进行调度.
+
+- `preferredDuringSchedulingIgnoredDuringExecution` 参数表示调度器会优先尝试寻找满足亲和性规则的节点. 如果实在找不到匹配亲和性的节点, 调度器会选择一个分值高但不满足 pod 亲和性要求的节点.
+
+下面是包含 pod 的亲和性的 pod 配置文件, 可对照该配置来理解 nodeAffinity 插件的 Filter 和 Score 的实现.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-xiaorui-cc
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: kubernetes.io/os
+            operator: In
+            values:
+            - linux
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 50
+        preference:
+          matchExpressions:
+          - key: nodenames
+            operator: In
+            values:
+            - xiaorui.cc
+  containers:
+  - name: with-node-affinity
+    image: registry.k8s.io/pause:2.0
+```
+
+源码位置: `pkg/scheduler/framework/plugins/nodeaffinity/node_affinity.go`
+
+```go
+type NodeAffinity struct {
+	handle              framework.Handle
+	addedNodeSelector   *nodeaffinity.NodeSelector
+	addedPrefSchedTerms *nodeaffinity.PreferredSchedulingTerms
+}
+
+var _ framework.FilterPlugin = &NodeAffinity{}
+var _ framework.ScorePlugin = &NodeAffinity{}
+...
+
+// 检查传入的 node 是否匹配该 pod 的 nodeAffinity
+func (pl *NodeAffinity) Filter(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeInfo *framework.NodeInfo) *framework.Status {
+	node := nodeInfo.Node()
+	// node 对象为空则跳出
+	if node == nil {
+		return framework.NewStatus(framework.Error, "node not found")
+	}
+
+	...
+
+	// 获取 prefilter 阶段写入的状态, 其实就是 pod 的 required 配置.
+	s, err := getPreFilterState(state)
+	if err != nil {
+		s = &preFilterState{requiredNodeSelectorAndAffinity: nodeaffinity.GetRequiredNodeAffinity(pod)}
+	}
+
+	// 判断 pod 的 required 跟 node 是否适配
+	match, _ := s.requiredNodeSelectorAndAffinity.Match(node)
+	if !match {
+		// 如不适配直接退出
+		return framework.NewStatus(framework.UnschedulableAndUnresolvable, ErrReasonPod)
+	}
+
+	return nil
+}
+
+// 跟 pod 和 node 亲和情况进行打分 score
+func (pl *NodeAffinity) Score(ctx context.Context, state *framework.CycleState, pod *v1.Pod, nodeName string) (int64, *framework.Status) {
+	...
+	node := nodeInfo.Node()
+
+	var count int64
+	if pl.addedPrefSchedTerms != nil {
+		count += pl.addedPrefSchedTerms.Score(node)
+	}
+
+	// 获取 prescore 阶段写入的 state
+	s, err := getPreScoreState(state)
+	if err != nil {
+		// Fallback to calculate preferredNodeAffinity here when PreScore is disabled.
+		preferredNodeAffinity, err := getPodPreferredNodeAffinity(pod)
+		if err != nil {
+			return 0, framework.AsStatus(err)
+		}
+		s = &preScoreState{
+			preferredNodeAffinity: preferredNodeAffinity,
+		}
+	}
+
+	// 根据 pod 的 preferred 和 node labels 的适配情况, 增加 weight 到 score 分值.
+	if s.preferredNodeAffinity != nil {
+		count += s.preferredNodeAffinity.Score(node)
+	}
+
+	return count, nil
+}
+
+func (t *PreferredSchedulingTerms) Score(node *v1.Node) int64 {
+	var score int64
+	nodeLabels := labels.Set(node.Labels)
+	nodeFields := extractNodeFields(node)
+	for _, term := range t.terms {
+		// 如果 node 匹配 pod preferred, 则增加定义的权重.
+		if ok, _ := term.match(nodeLabels, nodeFields); ok {
+			score += int64(term.weight)
+		}
+	}
+	return score
+}
+```
 
 ## 总结
 

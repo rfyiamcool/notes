@@ -10,6 +10,8 @@
 
 - [源码分析 kubernetes scheduler 核心调度器的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_scheduler_code.md)
 
+- [源码分析 kubernetes scheduler framework 插件的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_scheduler_code.md)
+
 - [源码分析 kubernetes nodeipam controller cidr 地址分配的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_nodeipam_controller_code.md)
 
 - [源码分析头条 kubernetes kubebrain 元数据存储的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/kubebrain_metadata_for_etcd.md)
