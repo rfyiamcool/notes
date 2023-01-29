@@ -1,4 +1,6 @@
-# 源码分析 kubernetes prometheus 服务发现的实现原理
+# 源码分析 kubernetes prometheus 监控系统服务发现实现原理
+
+> 本文基于 prometheus v2.41.0 版本进行源码分析.
 
 下图为 prometheus k8s 服务发现的流程原理.
 
@@ -697,13 +699,13 @@ func (m *Manager) reload() {
 
 ## 结论
 
-本文主要介绍了 prometheus 如何实现 k8s 的服务发现. 
+本文主要介绍了 prometheus 如何实现 k8s 的服务发现, 主要分析了 pod 和 node 资源对象的服务发现.
 
 其原理还是很简单，通过 k8s 的 apiserver 获取 k8s 里资源对象的信息, 比如 pod, node, ingress 等. 获取到资源对象构建成 targetGroup 目标组结构, 目标组内含有目标的地址信息及其他后期便于检索的 labels 标签信息. 接着把 targetGroup 信息通知给 scape manager.
 
-`scapeManager` 根据情况决定是动态更新 targets 还是新增 scrapePool 池对象. 如果是新增 targetGroup 不仅需要创建, 而且还需启动 scrapePool 池.
+`scapeManager` 收到更新通知后, 根据配置变动决定是动态更新 targets 还是新增 scrapePool 池对象. 如果是新增 targetGroup 不仅需要创建, 而且还需启动 scrapePool 池.
 
-另外 prometheus k8s 内部的配置通知的逻辑实现有点绕, 下图整理了配置通知的过程.
+另外 prometheus k8s 内部的配置通知的逻辑实现有点绕, 下图整理了配置监听, 通知传递和动态配置更新的过程.
 
 1. 首先 k8s provider 的 node 和 pod discoverer 监听到配置变动后, 传递给由 `manager.updater` 消费的管道.
 2. discovery updater 把监听到的信号再通知给内部的 `triggerSend` 管道.
