@@ -28,7 +28,7 @@ kubelet 有个 `--pod-infra-container-image` 参数就是控制 pause 的容器�
 
 pod 默认开启共享了 NETWORK, IPC 和 UTS 命名空间. 其他命名空间 namespace 需要在 pod 配置才可开启. 比如可以通过 `shareProcessNamespace = true` 开启 PID 命名空间的共享, 共享 pid 空间后, 容器内可以互相查看彼此的进程.
 
-## pause 容器原理
+## pause 容器共享 namespace 的实现原理
 
 pause 容器用来实现其他容器之间的 namespace 共享, 下面手动操作下 pause 如何实现容器间的 namespace 共享. 
 
