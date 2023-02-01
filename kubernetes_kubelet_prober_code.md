@@ -85,7 +85,7 @@ type Manager interface {
 
 #### 为 Pod 添加探活
 
-kubelet 在创建完容器后, 调用探针管理器的 `AddPod` 方法为 pod 开启探针. 每个探针都是一个 worker 协程. k8s 里 node 默认最大容器数在 110, 开满三个探针也才几百个协程.
+kubelet 在创建完容器后, 调用探针管理器的 `AddPod` 方法为 pod 开启探针. 每个探针都是一个 worker 协程. k8s node 节点默认允许最多创建 110 个Pod, 由 kubelet 的 `--max-pods` 参数控制, 开满三个探针也才几百个协程.
 
 ```go
 func (m *manager) AddPod(pod *v1.Pod) {
