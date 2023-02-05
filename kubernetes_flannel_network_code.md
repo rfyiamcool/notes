@@ -905,6 +905,12 @@ func (n *RouteNetwork) checkSubnetExistInRoutes(routes []netlink.Route, ipFamily
 }
 ```
 
+### host-gw 适用于二层网络
+
+flannal host-gw 方案当前只适用于同一个二层网络下, node 之间需要在一个 vlan 里, 因为 host-gw 在数据链路层会把目标的 MAC 地址换成目标 node 上的 MAC. 但如果两个 node 在不同的 vlan 虚拟局域网里, 那么由于 vlan 会隔离抑制广播, 通过 arp 广播自然无法拿到目标的 mac 网卡地址, 自然就无法把数据报文发出去.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302052018408.png)
+
 ## 总结
 
 下图 subnet manager 使用 k8s kube-apiserver, backend 选用 vxlan 网络.
