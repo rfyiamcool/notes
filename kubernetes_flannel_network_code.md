@@ -14,17 +14,21 @@ flannel 目前支持 udp, vxlan, host-gw 等 backend 实现.
 
 `host-gw` 的性能损失大约在 10% 左右，而 vxlan 这类网络方案性能损失在 20%~30% 左右.
 
-本文介绍 vxlan backend 下的跨主机容器通信过程及原理.
+本文主要介绍 vxlan 和 host-gw 的 backend 下的跨主机容器通信过程及原理.
 
 **flannel 的设计实现基本流程**
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302041931615.png)
 
-**flannel 的网络架构图**
+**flannel 流程架构图**
 
-限于篇幅原因, subnet manager 使用 k8s kube-apiserver, 而 backend 选用 vxlan 网络.
+subnet manager 使用 k8s kube-apiserver, backend 选用 vxlan 网络.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302042019492.png)
+
+subnet manager 使用 k8s kube-apiserver, backend 选用 host-gw 网络.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302051020026.png)
 
 ## flannel main 启动入口
 
@@ -483,7 +487,7 @@ func (be *VXLANBackend) RegisterNetwork(ctx context.Context, wg *sync.WaitGroup,
 		// ...
 	}
 
-	// 这个重要. 创建 network, 内部会监听集群变化, 按照变化事件做出增删改 vxlan 操作.
+	// 这个重要. 创建 vxlan network, 内部会监听集群变化, 按照变化事件做出增删改 vxlan 操作.
 	return newNetwork(be.subnetMgr, be.extIface, dev, v6Dev, ip.IP4Net{}, lease)
 }
 ```
@@ -699,7 +703,9 @@ func (n *RouteNetwork) Run(ctx context.Context) {
 }
 ```
 
-### host-gw 配置路由表
+### host-gw 配置路由表的原理
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302051013266.png)
 
 `handleSubnetEvents` 用来根据 event type 来增减路由表, 其内部使用 `netlink` 的 `RouteAdd` 来添加路由条目, 调动 `RouteDel` 来清理路由.
 
@@ -808,9 +814,11 @@ func routeAdd(route *netlink.Route, ipFamily int, addToRouteList, removeFromRout
 
 ### 定时修复路由表
 
-为什么需要周期性的修复路由表?
+`routeCheck` 会周期性的修复本地的路由表, 检测对比当前主机跟内存路由表, 如有缺失则添加路由规则. 
 
-1. 某个路由表被手动删除 ? 正常没这个可能.
+**为什么需要周期性的修复路由表 ?**
+
+1. 某个路由表的规则被手动删除 ? 正常没这个可能.
 2. `handleSubnetEvents` 在添加路由表时, 对失败的 `netlink.RouteAdd` 没有重试, 所以在失败后进行周期性的重试.
 
 ```go
