@@ -391,7 +391,7 @@ func Register(name string, ctor BackendCtor) {
 
 看下 vxlan 和 host-gw 是如何注册进来的.
 
-```
+```go
 // 源码位置: pkg/backend/vxlan/vxlan.go
 func init() {
 	backend.Register("vxlan", New)
@@ -677,7 +677,7 @@ func (nw *network) handleSubnetEvents(batch []subnet.Event) {
 
 ### host-gw network 启动入口
 
-`Run()` 方法会获取和监听 leases 对象, 并调用 `handleSubnetEvents` 来处理 host-gw 路由配置逻辑.
+`Run()` 方法会获取和监听 leases 对象, 并调用 `handleSubnetEvents` 来处理 host-gw 路由配置.
 
 ```go
 func (n *RouteNetwork) Run(ctx context.Context) {
@@ -821,6 +821,20 @@ func routeAdd(route *netlink.Route, ipFamily int, addToRouteList, removeFromRout
 }
 ```
 
+`host-gw` 的路由配置原理还是比较简单的. 首先读取整个集群里所有的 node 的 ip 和 cidr 子网等信息, 然后设置对应的路由策略. 在一个 node 节点上含有整个集群的路由信息.
+
+```
+10.230.10.0/24 dev cni0 proto kernel scope link src 10.230.10.1
+
+10.244.20.0/24 via 172.16.0.102 dev eth0
+10.244.21.0/24 via 172.16.0.121 dev eth0
+10.244.22.0/24 via 172.16.0.122 dev eth0
+10.244.23.0/24 via 172.16.0.123 dev eth0
+10.244.24.0/24 via 172.16.0.124 dev eth0
+10.244.25.0/24 via 172.16.0.125 dev eth0
+...
+```
+
 ### 定时修复路由表
 
 `routeCheck` 会周期性的修复本地的路由表, 检测对比当前主机跟内存路由表, 如有缺失则添加路由规则. 
@@ -904,3 +918,5 @@ func (n *RouteNetwork) checkSubnetExistInRoutes(routes []netlink.Route, ipFamily
 flannel 的实现原理大体分析完了, 其原理就是监听 etcd 或者 k8s apiserver 的 node 对象, 从 node 资源对象中解析到 spec.PodCIDR 等字段来构建 lease 对象. 根据 backend 的类型构建不同的 network 对象. 
 
 network 控制器从 subnet manager 监听获取 lease 对象, 然后配置网络. vxlan network 则需要进行 ARP, FDB, Route 配置流程, 而 host-gw 只需配置路由 route 规则即可.
+
+本文主要分析的 flannel 的代码实现过程, 后面会跟进继续分析 calico 和 cilium 的实现原理, 请关注订阅 [http://github.com/rfyiamcool/notes](http://github.com/rfyiamcool/notes)
