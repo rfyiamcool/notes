@@ -9,7 +9,7 @@ Flannel 采用的是 overlay 网络模式. 它使用 etcd 或者 kubernetes apis
 flannel 目前支持 udp, vxlan, host-gw 等 backend 实现. 
 
 - `udp` 模式少有人用, 其实现原理是在用户态实现 udp 转发服务, 数据会在内核和用户态之间拷贝, 从而影响转发性能. 
-- `host-gw` 三层路由的方式实现通信, 不涉及vxlan 这类的封包解包, 所以也不需要 flannel.1 虚机网卡, 直接通过配置路由表的方式设置 pod 的下一跳, 这样达到实现跨主机的容器之间的通信. host-gw 无疑是性能最好的, 但需要 node 之间要在一个二层网络里.
+- `host-gw` 通过三层路由的方式实现通信, 不涉及vxlan 这类的封包解包, 所以也不需要 flannel.1 虚机网卡, 直接配置路由表的方式设置 pod 的下一跳, 达到实现跨主机的容器之间的通信的目的. flannel host-gw 方案无疑是性能最好的方案, 但需要 node 之间同在一个二层网络 (vlan) 里可达, 如果 node 之间不在同一个二层网络, 那么则需要使用 `calico` 这类路由网络方案.
 - `vxlan` 是 Flannel 默认和推荐的模式, vxlan 网络虚拟化技术, 它使用一种隧道协议, 将二层以太网帧封装在四层 UDP 报文中, 通过三层网络传输组成一个虚拟大二层网络.
 
 `host-gw` 的性能损失大约在 10% 左右，而 vxlan 这类网络方案性能损失在 20%~30% 左右.
@@ -18,15 +18,11 @@ flannel 目前支持 udp, vxlan, host-gw 等 backend 实现.
 
 **flannel 的设计实现基本流程**
 
+下图 subnet manager 使用 k8s kube-apiserver, backend 选用 vxlan 网络.
+
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302041931615.png)
 
-**flannel 流程架构图**
-
-subnet manager 使用 k8s kube-apiserver, backend 选用 vxlan 网络.
-
-![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302042019492.png)
-
-subnet manager 使用 k8s kube-apiserver, backend 选用 host-gw 网络.
+下图 subnet manager 使用 k8s kube-apiserver, backend 选用 host-gw 网络.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302051020026.png)
 
@@ -36,17 +32,17 @@ subnet manager 使用 k8s kube-apiserver, backend 选用 host-gw 网络.
 
 1. 实例化 subnet manager 管理对象, 当启用 `kube-subnet-mgr` 参数时, 使用 k8s apiserver 作为 subsetmgr, 其他情况使用 etcd 作为 subsetmgr.
 2. 根据 flannel backend 类型创建 backend 对象.
-3. 根据 backend 里配置创建获取 network 对象.
-4. 启动 backend 的 network, 核心的处理逻辑都是各个 backend 的 network 里.
+3. 根据 backend 里配置创建获取 network 控制器对象.
+4. 启动 backend 的 network 控制器, 核心的处理逻辑都是各个 backend 的 network 里.
 5. 如果使用 systemd 管理进程, 则用 uds 跟 systemd 建连, 发送就绪消息.
 6. 等需要退出时, 向 apiserver 发送状态请求, 表明当前 flannel 在运行.
 7. 等待所有协程退出.
 
 这里涉及到了几个组件.
 
-- subnet manager 实现了ip的租期管理, 申请，续约, 监听事件变动都是在这里实现的.
-- backend manager 用来构建不同容器通信的 backend 对象. 启动阶段 udp, vxlan, host-gw 的 backend 都注册在这里, 通过 `GetBackend` 获取对应类型的 backend 对象.
-- network 各个 backend 都有实现 network 组件, 该组件用来实施网络通信.
+- subnet manager, 实现了ip的租期管理, 申请，续约, 监听事件变动都是在这里实现的.
+- backend manager, 用来构建不同容器通信的 backend 对象. 启动阶段 udp, vxlan, host-gw 的 backend 都注册在这里, 通过 `GetBackend` 获取对应类型的 backend 对象.
+- network, 在各个 backend 里都有实现 network 控制器组件, 该组件用来真正的去实施网络策略配置.
 
 ```go
 func main() {
@@ -304,7 +300,7 @@ func (ksm *kubeSubnetManager) nodeToLease(n v1.Node) (l subnet.Lease, err error)
 }
 ```
 
-`WatchLeases` 监听 ksm.events 管道, 有数据返回给调用方.
+`WatchLeases` 用来监听 ksm.events 管道, 当有数据时返回给调用方.
 
 ```go
 func (ksm *kubeSubnetManager) WatchLeases(ctx context.Context, cursor interface{}) (subnet.LeaseWatchResult, error) {
@@ -407,9 +403,23 @@ func init() {
 }
 ```
 
-## backend 创建注册网络的实现 RegisterNetwork
+## vxlan 网络通信的实现原理
 
-flannel 中每个 backend 对象都需要实现 `RegisterNetwork` 方法. 这里只说 `vxlan` 类型的 backend.
+下图为 vxlan 跨主机的网络通信架构.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302042019492.png)
+
+下图为 vxlan network 的实现原理.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302042036994.png)
+
+vxlan 的 network 会从 kubeSubnetManager informer 中获取全量及增量的 node 事件. 然后从调用 `handleSubnetEvents` 方法对 vxlan 进行处理, 主要对 ARP / FDB / Route 进行配置.
+
+源码位置: `pkg/backend/vxlan/vxlan_network.go`
+
+### 创建 vxlan network 实例
+
+flannel 中每个 backend 对象都需要实现 `RegisterNetwork` 方法. 这里举例 `vxlan` 类型的 backend.
 
 `RegisterNetwork` 其内部流程如下.
 
@@ -492,13 +502,8 @@ func (be *VXLANBackend) RegisterNetwork(ctx context.Context, wg *sync.WaitGroup,
 }
 ```
 
-## vxlan network 的实现原理
 
-![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302042036994.png)
-
-vxlan 的 network 会从 kubeSubnetManager informer 中获取全量及增量的 node 事件. 然后从调用 `handleSubnetEvents` 方法对 vxlan 进行处理, 主要对 ARP / FDB / Route 进行配置.
-
-源码位置: `pkg/backend/vxlan/vxlan_network.go`
+### vxlan network 启动入口
 
 ```go
 func (nw *network) Run(ctx context.Context) {
@@ -527,6 +532,8 @@ func (nw *network) Run(ctx context.Context) {
 	}
 }
 ```
+
+### vxlan 的配置实现原理
 
 `handleSubnetEvents` 为配置 vlan 虚拟网络的核心方法, 实现原理是根据传入的事件和配置来添加或删除 vxlan 的 arp, fdb, route 配置.
 
@@ -659,6 +666,8 @@ func (nw *network) handleSubnetEvents(batch []subnet.Event) {
 ```
 
 ## host-gw network 的实现原理
+
+下图为 host-gw 跨主机的网络通信原理.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302050019035.png)
 
@@ -884,6 +893,14 @@ func (n *RouteNetwork) checkSubnetExistInRoutes(routes []netlink.Route, ipFamily
 
 ## 总结
 
+下图 subnet manager 使用 k8s kube-apiserver, backend 选用 vxlan 网络.
+
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302041931615.png)
 
-flannel 的实现原理大体分析完了.
+下图 subnet manager 使用 k8s kube-apiserver, backend 选用 host-gw 网络.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302051020026.png)
+
+flannel 的实现原理大体分析完了, 其原理就是监听 etcd 或者 k8s apiserver 的 node 对象, 从 node 资源对象中解析到 spec.PodCIDR 等字段来构建 lease 对象. 根据 backend 的类型构建不同的 network 对象. 
+
+network 控制器从 subnet manager 监听获取 lease 对象, 然后配置网络. vxlan network 则需要进行 ARP, FDB, Route 配置流程, 而 host-gw 只需配置路由 route 规则即可.
