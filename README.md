@@ -64,6 +64,12 @@
 
 - [源码分析 kubernetes kube-proxy 的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_proxy_code.md)
 
+### hashcorp raft
+
+<img src="https://raw.githubusercontent.com/rfyiamcool/notes/main/docs/images/raft-logo.png" width="15%">
+
+- [源码分析 hashcorp raft election 选举的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/hashcorp_raft_election.md)
+
 ### traefik
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_11.png" width="15%">
