@@ -1,8 +1,8 @@
-# 源码分析 hashcorp raft 日志同步的实现原理
+# 源码分析 hashcorp raft replication 日志复制的实现原理
 
 > 本文基于 hashcorp/raft `v1.3.11` 版本进行源码分析
 
-本文按照下面流程分析 raft 日志同步的实现原理.
+本文按照下面流程分析 raft 日志复制的实现原理.
 
 1. 调用上层 Apply 接口写数据.
 2. leader 向 follower 同步日志.
