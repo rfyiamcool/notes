@@ -1,9 +1,13 @@
-# 源码分析 hashcorp raft 的持久化实现原理
+# 源码分析 hashcorp raft 的持久化存储的实现原理
+
+> 本文基于 hashcorp/raft `v1.3.11` 版本进行源码分析
 
 当使用 hashcorp/raft 实例化 raft 对象时, 需要传入实现 StableStore 和 LogStore 接口的存储对象. 
 
 - LogStore 用来存储 raft log 日志, 需要实现 raft log 日志按照 Index 的增删改查.
 - StableStore 用来 `CurrentTerm`, `LastVoteTerm` 和 `LastVoteCand` 的键值. 通常不会使用该对象实现业务的存储.
+
+下面是实例化 hashcorp raft 的例子.
 
 ```go
 import (

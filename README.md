@@ -70,6 +70,7 @@
 
 - [源码分析 hashcorp raft election 选举的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/hashcorp_raft_election_code.md)
 - [源码分析 hashcorp raft replication 日志复制的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashcorp_raft_replication_code.md)
+- [源码分析 hashcorp raft 持久化存储的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashcorp_raft_persistence_code.md)
 
 ### traefik
 
