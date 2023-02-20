@@ -68,7 +68,7 @@
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/notes/main/docs/images/raft-logo.png" width="15%">
 
-- [源码分析 hashcorp raft election 选举的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/hashcorp_raft_election.md)
+- [源码分析 hashcorp raft election 选举的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/hashcorp_raft_election_code.md)
 
 ### traefik
 

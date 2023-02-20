@@ -955,6 +955,8 @@ func (c *commitment) recalculate() {
 
 ## 总结
 
-关于 hashcorp raft 选举的实现原理分析完了, 其正常流程是这样, 初始阶段为 follower, 在时间窗口内没有获取到 leader 的确认请求, 则切换到 candidate 发起选举, 当收到大多数节点的投票 (n/2 + 1) 时, 切换到 leader 角色, leader 不仅处理读写请求, 且定时给 follower 发送心跳. 
+关于 hashcorp raft 选举的实现原理分析完了, 其正常流程是这样, 初始阶段为 follower, 在时间窗口内没有获取到 leader 的确认请求, 则切换到 candidate 发起选举, 当收到大多数节点的投票 (n/2 + 1) 时, 切换到 leader 角色, leader 不仅处理读写请求, 且定时给 follower 发送心跳.
 
-关于其他各种异常下的处理, 这里就不再复述, 请直接看正文中的源码分析. 另外 hashcorp raft 作为 raft 一致性协议的工程实践, 其内部还是做了一些的优化. 
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302162223801.png)
+
+关于其他各种异常下的处理, 这里就不再复述, 请直接看正文中的源码分析. 另外 hashcorp raft 作为 raft 一致性协议的工程实践, 其内部还是做了一些的优化.
