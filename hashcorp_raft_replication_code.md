@@ -1,6 +1,6 @@
-# 源码分析 hashcorp raft replication 日志复制的实现原理
+# 源码分析 hashicorp raft replication 日志复制的实现原理
 
-> 本文基于 hashcorp/raft `v1.3.11` 版本进行源码分析
+> 本文基于 hashicorp/raft `v1.3.11` 版本进行源码分析
 
 本文按照下面流程分析 raft 日志复制的实现原理.
 
@@ -12,11 +12,11 @@
 
 ## Apply 应用日志
 
-`Apply` 是 hashcorp raft 提供的给上层写数据的入口, 当使用 hashcorp/raft 构建分布式系统时, 作为 leader 节点承担了写操作, 这里写就是调用 api 里的 Apply 方法.
+`Apply` 是 hashicorp raft 提供的给上层写数据的入口, 当使用 hashicorp/raft 构建分布式系统时, 作为 leader 节点承担了写操作, 这里写就是调用 api 里的 Apply 方法.
 
 `Apply` 入参的 cmd 为业务需要写的数据, 只支持 `[]byte`, 如是 struct 对象则需要序列化为 `[]byte`, timeout 为写超时, 这里的写超时只是把 logFuture 插入 applyCh 的超时时间, 而不是推到 follower 的时间.
 
-`Apply` 其内部流程是先实例化一个定时器, 然后把业务数据构建成 logFuture 对象, 然后推到 applyCh 队列. applyCh 缓冲队列的大小跟 raft 的并发吞吐有关系的, hashcorp raft 里 applyCh 默认长度为 64.
+`Apply` 其内部流程是先实例化一个定时器, 然后把业务数据构建成 logFuture 对象, 然后推到 applyCh 队列. applyCh 缓冲队列的大小跟 raft 的并发吞吐有关系的, hashicorp raft 里 applyCh 默认长度为 64.
 
 代码位置: `github.com/hashicorp/raft/api.go`
 
@@ -63,7 +63,7 @@ func (r *Raft) ApplyLog(log Log, timeout time.Duration) ApplyFuture {
 
 ## 监听 applyCh 并调度通知日志
 
-`leaderLoop` 会监听 applyCh 管道, 该管道的数据是由 hashcorp/raft api 层的 Apply 方法推入, leaderLoop 在收到 apply 日志后, 调用 `dispatchLogs` 来给 `replication` 调度通知日志.
+`leaderLoop` 会监听 applyCh 管道, 该管道的数据是由 hashicorp/raft api 层的 Apply 方法推入, leaderLoop 在收到 apply 日志后, 调用 `dispatchLogs` 来给 `replication` 调度通知日志.
 
 代码位置: `github.com/hashicorp/raft/raft.go`
 
@@ -104,7 +104,7 @@ func (r *Raft) leaderLoop() {
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302201641200.png)
 
-开启批量是很有必要的, 大大提高了 raft 日志数据同步的效率. 首先 hashcorp raft 当前只支持单个 leader, 又不支持乱序并发算法, 所有的写操作日志都是串行方式来同步, 所谓串行同步就是顺序同步. 如果每次发送单条日志, 那么网络的时延相当的可观, 比如两个主机之间的日志同步的 RTT 为 1ms, 多条日志就是 1ms * N. 但由于内网环境下网络带宽吞吐很高, 所以完全可以单次一个批次的日志, 节省过多的网络 RTT 开销.
+开启批量是很有必要的, 大大提高了 raft 日志数据同步的效率. 首先 hashicorp raft 当前只支持单个 leader, 又不支持乱序并发算法, 所有的写操作日志都是串行方式来同步, 所谓串行同步就是顺序同步. 如果每次发送单条日志, 那么网络的时延相当的可观, 比如两个主机之间的日志同步的 RTT 为 1ms, 多条日志就是 1ms * N. 但由于内网环境下网络带宽吞吐很高, 所以完全可以单次一个批次的日志, 节省过多的网络 RTT 开销.
 
 `dispatchLogs` 用来记录本地日志以及派发日志给所有的 follower. 
 
@@ -511,7 +511,7 @@ func (c *commitment) recalculate() {
 
 ### raft transport 网络层
 
-hashcorp transport 层是使用 msgpack rpc 实现的, 其实现原理没什么可说的.
+hashicorp transport 层是使用 msgpack rpc 实现的, 其实现原理没什么可说的.
 
 ```go
 func (n *NetworkTransport) AppendEntries(id ServerID, target ServerAddress, args *AppendEntriesRequest, resp *AppendEntriesResponse) error {
@@ -885,4 +885,4 @@ func (r *Raft) runFSM() {
 
 ## 总结
 
-hashcorp raft 的同步就是这样了. 其实过程简单说, 上层写日志, leader 同步日志, follower 接收日志, leader 确认提交日志, follower 跟着提交日志. 
+hashicorp raft 的同步就是这样了. 其实过程简单说, 上层写日志, leader 同步日志, follower 接收日志, leader 确认提交日志, follower 跟着提交日志. 

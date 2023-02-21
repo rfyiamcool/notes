@@ -64,13 +64,13 @@
 
 - [源码分析 kubernetes kube-proxy 的实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_kube_proxy_code.md)
 
-### hashcorp raft
+### hashicorp raft
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/notes/main/docs/images/raft-logo.png" width="15%">
 
-- [源码分析 hashcorp raft election 选举的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/hashcorp_raft_election_code.md)
-- [源码分析 hashcorp raft replication 日志复制的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashcorp_raft_replication_code.md)
-- [源码分析 hashcorp raft 持久化存储的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashcorp_raft_persistence_code.md)
+- [源码分析 hashicorp raft election 选举的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_election_code.md)
+- [源码分析 hashicorp raft replication 日志复制的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_replication_code.md)
+- [源码分析 hashicorp raft 持久化存储的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_persistence_code.md)
 
 ### traefik
 
