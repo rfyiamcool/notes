@@ -2,9 +2,11 @@
 
 > 本文基于 hashicorp/raft `v1.3.11` 版本进行源码分析
 
-![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302211455423.png)
-
 raft snapshot 快照是用来归档 raft log, 避免 raft log 太大造成读写性能和空间占用问题.
+
+如下图, 按照 raft 策略生成快照文件, 对 raft log 中的 index 1 -> 5 生成快照后, 快照中只有两个值 `x=0, y=9`. 当一个新 follower 加入集群或者 follower 需要同步的日志已经被归档到 snapshot 快照中, 这时候需要先同步全量数据, 这里指的是快照文件, 之后, 再进行日志的复制同步.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302211455423.png)
 
 ## snapshot 启动入口
 
@@ -69,6 +71,8 @@ func (r *Raft) shouldSnapshot() bool {
 ```
 
 ## takeSnapshot 执行快照持久化
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302212221328.png)
 
 `takeSnapshot` 用来真正的创建新的快照, 其逻辑是首先用 `snapshots.Create` 创建 sink 输出对象, 然后调用 Persist 对 sink 进行持久化. 最后需要调用 `compactLogs` 用删除已经快照的日志数据, 毕竟 log 文件的磁盘空间不断增长.
 
@@ -218,6 +222,8 @@ type FSMSnapshot interface {
 
 ## follower 如何处理 snaptshot 快照文件 ?
 
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302212230178.png)
+
 follower 收到 rpc 请求类型为 `InstallSnapshotRequest` 时, 则调用 `installSnapshot` 进行快照数据持久化, 然后配合 `runFSM` 状态机运行期来完成快照文件的数据恢复还原操作.
 
 ```go
@@ -362,6 +368,8 @@ func fsmRestoreAndMeasure(logger hclog.Logger, fsm FSM, source io.ReadCloser, sn
 }
 ```
 
+其原理简单说, 就是把 leader 发送的快照文件给持久化到指定文件路径里, 然后回调用户注册的 FSM.Restore 方法来还原数据.
+
 ## 如何实现简化版的 FSM
 
 下面是一个简化的 fsm 样例代码, 一个简单内存的 kv 数据库的场景, 内部使用 map 实现了存储, 快照为一个简单的 json 文件.
@@ -465,9 +473,11 @@ func (f *fsmSnapshot) Release() {}
 
 ## 开源项目 rqlite 快照的生成和恢复的实现原理
 
-rqlite 是基于 hashicorp/raft 实现的分布式 sqlite 数据库, 这里看下 rqlite 里 Snapshot 和 Restore 的实现原理. 看完后你会有些失望, 因为其快照的实现有些简单. 😁
+rqlite 是基于 hashicorp/raft 实现的分布式 sqlite 数据库, 先不看它的实现原理, 这里光看下 rqlite 里 Snapshot 和 Restore 的实现原理. 看完后你会有些失望, 因为其快照的实现有些简单.
 
 [https://github.com/rqlite/rqlite](https://github.com/rqlite/rqlite)
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302212215008.png)
 
 ### fsm Snapshot 生成快照的逻辑
 
