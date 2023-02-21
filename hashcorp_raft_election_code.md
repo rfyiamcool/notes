@@ -1,8 +1,8 @@
-# 源码分析 hashcorp raft election 选举的设计实现原理
+# 源码分析 hashicorp raft election 选举的设计实现原理
 
-> 本文基于 hashcorp/raft `v1.3.11` 版本进行源码分析
+> 本文基于 hashicorp/raft `v1.3.11` 版本进行源码分析
 
-关于 hashcrop/raft 其实现原理会分多个章节来讲解. 本文主要分析 hashcorp/raft 选举的实现原理. 在阅读本文前需要有一定的 raft 论文基础, 不然直接看源码会一头雾水.
+关于 hashcrop/raft 其实现原理会分多个章节来讲解. 本文主要分析 hashicorp/raft 选举的实现原理. 在阅读本文前需要有一定的 raft 论文基础, 不然直接看源码会一头雾水.
 
 **link**
 
@@ -18,7 +18,7 @@
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302162223801.png)
 
-hashcorp raft 中定义了几个 raftState.
+hashicorp raft 中定义了几个 raftState.
 
 ```go
 type RaftState uint32
@@ -40,7 +40,7 @@ const (
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302171509016.png)
 
-`run()` 为 hashcorp/raft 的核心启动入口, 通过判断当前 state 状态, 调用不同的方法来处理. 刚启动时 state 为 follower 跟随者.
+`run()` 为 hashicorp/raft 的核心启动入口, 通过判断当前 state 状态, 调用不同的方法来处理. 刚启动时 state 为 follower 跟随者.
 
 ```go
 // run the main thread that handles leadership and RPC requests.
@@ -190,7 +190,7 @@ func (r *Raft) runFollower() {
 
 `processRPC` 用来接收处理来自其他节点 RPC 请求, follower、candidate、leader 三者都可处理下面类型的 RPC 请求.
 
-代码上 hashcorp/raft 没有区分各个角色的 rpc 请求方法, 而是统一做处理, 这样代码看起来复杂了一些.
+代码上 hashicorp/raft 没有区分各个角色的 rpc 请求方法, 而是统一做处理, 这样代码看起来复杂了一些.
 
 ```go
 // processRPC is called to handle an incoming RPC request. This must only be
@@ -222,7 +222,7 @@ func (r *Raft) processRPC(rpc RPC) {
 }
 ```
 
-hashcorp raft server/client 是使用 msgpack on tcp 实现的 rpc 服务, 关于 hashcrop raft transport server/client 的实现原理没什么可深入的, 请直接看代码实现. msgpack rpc 的协议报文格式如下.
+hashicorp raft server/client 是使用 msgpack on tcp 实现的 rpc 服务, 关于 hashcrop raft transport server/client 的实现原理没什么可深入的, 请直接看代码实现. msgpack rpc 的协议报文格式如下.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/Sample%20Flowchart%20Template%20-2-.jpg)
 
@@ -369,7 +369,7 @@ func (r *Raft) requestVote(rpc RPC, req *RequestVoteRequest) {
 
 简单说 `appendEntries()` 同步日志是 leader 和 follower 不断调整位置再同步数据的过程.
 
-下一篇讲 hashcorp/raft replicate 同步日志时, 详细分析其实现原理. 
+下一篇讲 hashicorp/raft replicate 同步日志时, 详细分析其实现原理. 
 
 ```go
 // appendEntries is invoked when we get an append entries RPC call. This must
@@ -955,8 +955,8 @@ func (c *commitment) recalculate() {
 
 ## 总结
 
-关于 hashcorp raft 选举的实现原理分析完了, 其正常流程是这样, 初始阶段为 follower, 在时间窗口内没有获取到 leader 的确认请求, 则切换到 candidate 发起选举, 当收到大多数节点的投票 (n/2 + 1) 时, 切换到 leader 角色, leader 不仅处理读写请求, 且定时给 follower 发送心跳.
+关于 hashicorp raft 选举的实现原理分析完了, 其正常流程是这样, 初始阶段为 follower, 在时间窗口内没有获取到 leader 的确认请求, 则切换到 candidate 发起选举, 当收到大多数节点的投票 (n/2 + 1) 时, 切换到 leader 角色, leader 不仅处理读写请求, 且定时给 follower 发送心跳.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302162223801.png)
 
-关于其他各种异常下的处理, 这里就不再复述, 请直接看正文中的源码分析. 另外 hashcorp raft 作为 raft 一致性协议的工程实践, 其内部还是做了一些的优化.
+关于其他各种异常下的处理, 这里就不再复述, 请直接看正文中的源码分析. 另外 hashicorp raft 作为 raft 一致性协议的工程实践, 其内部还是做了一些的优化.

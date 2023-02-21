@@ -1,13 +1,13 @@
-# 源码分析 hashcorp raft 的持久化存储的实现原理
+# 源码分析 hashicorp raft 的持久化存储的实现原理
 
-> 本文基于 hashcorp/raft `v1.3.11` 版本进行源码分析
+> 本文基于 hashicorp/raft `v1.3.11` 版本进行源码分析
 
-当使用 hashcorp/raft 实例化 raft 对象时, 需要传入实现 StableStore 和 LogStore 接口的存储对象. 
+当使用 hashicorp/raft 实例化 raft 对象时, 需要传入实现 StableStore 和 LogStore 接口的存储对象. 
 
 - LogStore 用来存储 raft log 日志, 需要实现 raft log 日志按照 Index 的增删改查.
 - StableStore 用来 `CurrentTerm`, `LastVoteTerm` 和 `LastVoteCand` 的键值. 通常不会使用该对象实现业务的存储.
 
-下面是实例化 hashcorp raft 的例子.
+下面是实例化 hashicorp raft 的例子.
 
 ```go
 import (
@@ -49,7 +49,7 @@ func main() {
 
 ## InmemStore 内存型存储
 
-`InmemStore` 是 hashcorp/raft 里用来测试的内存 store, 该 store 没有持久化.
+`InmemStore` 是 hashicorp/raft 里用来测试的内存 store, 该 store 没有持久化.
 
 代码地址: `github.com/hashicorp/raft/inmem_store.go`
 
@@ -176,7 +176,7 @@ func (i *InmemStore) GetUint64(key []byte) (uint64, error) {
 
 ## raft-boltdb
 
-hashcorp/raft 官方有个 raft-boltdb 扩展项目, 该项目使用 boltdb 实现 hashcorp/raft 需要的 StableStore 和 LogStore 存储接口.
+hashicorp/raft 官方有个 raft-boltdb 扩展项目, 该项目使用 boltdb 实现 hashicorp/raft 需要的 StableStore 和 LogStore 存储接口.
 
 项目地址: `https://github.com/hashicorp/raft-boltdb`
 
@@ -456,7 +456,7 @@ func (s *Storage) LastIndex() (uint64, error) {
 
 ## LogCache 缓存组件
 
-hashcorp/raft 内置了 LogStore 的缓存实现, 其实现原理简单粗暴, 就是使用 cache 切片来存放 Log.
+hashicorp/raft 内置了 LogStore 的缓存实现, 其实现原理简单粗暴, 就是使用 cache 切片来存放 Log.
 
 代码位置: `github.com/hashicorp/raft/log_cache.go`
 
@@ -523,4 +523,4 @@ func (c *LogCache) LastIndex() (uint64, error) {
 
 ## 小结
 
-hashcorp/raft 自带的 InmemStore 存储是全内存的，可用来测试, raft-boltdb 是 hashcorp 官方提供的存储组件, consul 也使用了该持久化组件, raft-badger 是本人开发持久化组件, 就 raft 场景来说, 相比 boltdb 具有更好的性能和压缩效果.
+hashicorp/raft 自带的 InmemStore 存储是全内存的，可用来测试, raft-boltdb 是 hashicorp 官方提供的存储组件, consul 也使用了该持久化组件, raft-badger 是本人开发持久化组件, 就 raft 场景来说, 相比 boltdb 具有更好的性能和压缩效果.
