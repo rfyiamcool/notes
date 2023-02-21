@@ -463,6 +463,163 @@ func (f *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
 func (f *fsmSnapshot) Release() {}
 ```
 
+## 开源项目 rqlite 快照的生成和恢复的实现原理
+
+rqlite 是基于 hashicorp/raft 实现的分布式 sqlite 数据库, 这里看下 rqlite 里 Snapshot 和 Restore 的实现原理. 看完后你会有些失望, 因为其快照的实现有些简单. 😁
+
+[https://github.com/rqlite/rqlite](https://github.com/rqlite/rqlite)
+
+### fsm Snapshot 生成快照的逻辑
+
+```go
+func (s *Store) Snapshot() (raft.FSMSnapshot, error) {
+	defer func() {
+		s.numSnapshotsMu.Lock()
+		defer s.numSnapshotsMu.Unlock()
+	}()
+
+	// 锁住库, 把 db 数据
+	s.queryTxMu.Lock()
+	defer s.queryTxMu.Unlock()
+
+	// 构建 FSMSnapshot 对象, 传入 sqlite db 对象.
+	fsm := newFSMSnapshot(s.db, s.logger)
+
+	// ...
+
+	return fsm, nil
+}
+```
+
+`fsmSnapshot` 实现了 `Persist` 方法, 该方法主要实现快照数据的持久化.
+
+```go
+func newFSMSnapshot(db *sql.DB, logger *log.Logger) *fsmSnapshot {
+	fsm := &fsmSnapshot{
+		startT: time.Now(),
+		logger: logger,
+	}
+
+	// 把 sqlite db 的数据捞出来序列化到 database []byte 对象里.
+	fsm.database, _ = db.Serialize()
+	return fsm
+}
+
+// Persist writes the snapshot to the given sink.
+func (f *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
+	err := func() error {
+		// ...
+
+		// 压缩下 database bytes 数据, 这里使用 gzip BestCompression 压缩.
+		cdb, err := f.compressedDatabase()
+		if err != nil {
+			return err
+		}
+
+		if cdb != nil {
+			// 先把压缩后的文件字节数, 用 binary 编码写到文件的头部.
+			err = writeUint64(b, uint64(len(cdb)))
+			if err != nil {
+				return err
+			}
+			// 使用 sink write 把压缩后的 bytes 写到数据的文件.
+			if _, err := sink.Write(b.Bytes()); err != nil {
+				return err
+			}
+
+			// 把压缩的 db 数据写到文件里.
+			if _, err := sink.Write(cdb); err != nil {
+				return err
+			}
+		}
+
+		// 关闭 sink 对象
+		return sink.Close()
+	}()
+
+	if err != nil {
+		sink.Cancel() // 关闭 sink
+		return err
+	}
+
+	return nil
+}
+
+// 使用 gzip 压缩算法.
+func (f *fsmSnapshot) compressedDatabase() ([]byte, error) {
+	var buf bytes.Buffer
+	gz, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := gz.Write(f.database); err != nil {
+		return nil, err
+	}
+	if err := gz.Close(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (f *fsmSnapshot) Release() {}
+```
+
+### fsm restore 数据还原逻辑
+
+```go
+func (s *Store) Restore(rc io.ReadCloser) error {
+	startT := time.Now()
+	// 把 io reader 对象的数据都读取出来.
+	b, err := dbBytesFromSnapshot(rc)
+	if err != nil {
+		return fmt.Errorf("restore failed: %s", err.Error())
+	}
+
+	// 关闭以前的 sqlite db 对象
+	if err := s.db.Close(); err != nil {
+		return fmt.Errorf("failed to close pre-restore database: %s", err)
+	}
+
+	var db *sql.DB
+	if s.StartupOnDisk || (!s.dbConf.Memory && s.lastCommandIdxOnOpen == 0) {
+		// 如果使用了 ondisk, 则使用持久化 sqlite db.
+		db, err = createOnDisk(b, s.dbPath, s.dbConf.FKConstraints)
+		if err != nil {
+			return fmt.Errorf("open on-disk file during restore: %s", err)
+		}
+		s.onDiskCreated = true
+	} else {
+		// 反之，使用基于内存构建的 sqlite 对象.
+		db, err = createInMemory(b, s.dbConf.FKConstraints)
+		if err != nil {
+			return fmt.Errorf("createInMemory: %s", err)
+		}
+	}
+
+	// 重新赋值新的 db 对象
+	s.db = db
+	return nil
+}
+```
+
+`createOnDisk` 用来恢复 sqlite, 其逻辑很简单, 首先删除以前的 db 的数据库文件, 然后把快照数据写到 sqlite 库文件里, 然后使用 sql.Open 重新打开 sqlite 文件.
+
+这个代码实现有些粗暴呀, 先把数据装载到内存里, 然后写到 db 文件里, 最少可以使用 io.Copy 按 chunk 写入.
+
+```go
+func createOnDisk(b []byte, path string, fkConstraints bool) (*sql.DB, error) {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		return nil, err
+	}
+	if b != nil {
+		if err := ioutil.WriteFile(path, b, 0660); err != nil {
+			return nil, err
+		}
+	}
+	return sql.Open(path, fkConstraints)
+}
+```
+
 ## 总结
 
 hashicorp raft 快照的实现原理讲完了.
