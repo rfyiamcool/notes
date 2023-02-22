@@ -10,6 +10,13 @@
 - [raft 原版论文](https://raft.github.io/raft.pdf)
 - [raft 中文翻译论文](https://github.com/maemual/raft-zh_cn)
 
+**golang hashicorp raft 原理系列**
+
+- [源码分析 hashicorp raft election 选举的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_election_code.md)
+- [源码分析 hashicorp raft replication 日志复制的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_replication_code.md)
+- [源码分析 hashicorp raft 持久化存储的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_persistence_code.md)
+- [源码分析 hashicorp raft snapshot 快照的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_snapshot_code.md)
+
 ## raft 启动入口
 
 代码位置: `github.com/hashicorp/raft/raft.go`
