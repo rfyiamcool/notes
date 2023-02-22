@@ -8,6 +8,13 @@ raft snapshot 快照是用来归档 raft log, 避免 raft log 太大造成读写
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302211455423.png)
 
+**golang hashicorp raft 原理系列**
+
+- [源码分析 hashicorp raft election 选举的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_election_code.md)
+- [源码分析 hashicorp raft replication 日志复制的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_replication_code.md)
+- [源码分析 hashicorp raft 持久化存储的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_persistence_code.md)
+- [源码分析 hashicorp raft snapshot 快照的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_snapshot_code.md)
+
 ## snapshot 启动入口
 
 hashicorp raft 在启动时会启动三个协程, 其一就是 `runSnapshots` 协程, 该协程用来监听用户的快照请求和定时器, 判断是否需要快照, 当 log 超过阈值或者用户主动提交快照时, 进行执行快照. 
@@ -629,6 +636,20 @@ func createOnDisk(b []byte, path string, fkConstraints bool) (*sql.DB, error) {
 	return sql.Open(path, fkConstraints)
 }
 ```
+
+## 工程实践中 raft 快照的使用
+
+上面 hashicorp raft example 和 rqlite 里, 关于快照备份和还原的实现略显简单. 假设当集群中单节点的数据已经到了 50G, 难道需要把 50G 的数据全遍历读取出来, 接着在内存里进行序列化和压缩, 然后保存到快照文件里. 后面通过 raft replication 复制机制把快照传到 follower, follower 把文件读取出来, 内存中解压和反序列化, 最后还原数据.
+
+不合理, 这样的快照生成和数据还原在大数据集下显得不合理. 通常 kv 引擎都是可以实现热备份的, 通过热备份接口实现全量数据的生成快照功能, 这样无需序列化和压缩, 发送给 follower 后, follower 把快照写到指定文件里, 在关闭 DB 对象后, 直接使用新 DB 文件启动即可.
+
+另外, 对于 single raft 来说, 当加入新 follower 时, 只需要把一个已存在的 follower 的数据同步到新节点即可. 像 360 pika 是一个支持 multi raft 的支持外存的 redis, 其内部快照的发送的逻辑是先对 rocksdb 做快照, 然后再发送数据到从端, 后面的流程差不多.
+
+下面是 rocksdb, badgerdb 和 boltdb 热备份的方法.
+
+- [Rocksdb 备份方法](https://github.com/johnzeng/rocksdb-doc-cn/blob/master/doc/How-to-backup-RocksDB.md)
+- [Badgerdb 备份方法](https://github.com/dgraph-io/badger/blob/v1.6.2/backup.go#L53)
+- [Boltdb 备份方法](https://github.com/boltdb/bolt/blob/master/tx.go#L304)
 
 ## 总结
 

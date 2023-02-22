@@ -2,10 +2,59 @@
 
 > 本文基于 hashicorp/raft `v1.3.11` 版本进行源码分析
 
-当使用 hashicorp/raft 实例化 raft 对象时, 需要传入实现 StableStore 和 LogStore 接口的存储对象. 
+raft 的持久化指的是 raft log 和 raft 一些元数据的持久化, hashicorp/raft 的持久化组件需要实现 StableStore 和 LogStore 接口.
+
+**golang hashicorp raft 原理系列**
+
+- [源码分析 hashicorp raft election 选举的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_election_code.md)
+- [源码分析 hashicorp raft replication 日志复制的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_replication_code.md)
+- [源码分析 hashicorp raft 持久化存储的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_persistence_code.md)
+- [源码分析 hashicorp raft snapshot 快照的实现原理](https://github.com/rfyiamcool/notes/blob/main/hashicorp_raft_snapshot_code.md)
+
+## raft 持久化概述
+
+当使用 hashicorp/raft 实例化 raft 对象时, 需要传入实现了 StableStore 和 LogStore 接口的存储对象. 
 
 - LogStore 用来存储 raft log 日志, 需要实现 raft log 日志按照 Index 的增删改查.
 - StableStore 用来 `CurrentTerm`, `LastVoteTerm` 和 `LastVoteCand` 的键值. 通常不会使用该对象实现业务的存储.
+
+```go
+// LogStore is used to provide an interface for storing
+// and retrieving logs in a durable fashion.
+type LogStore interface {
+	// FirstIndex returns the first index written. 0 for no entries.
+	FirstIndex() (uint64, error)
+
+	// LastIndex returns the last index written. 0 for no entries.
+	LastIndex() (uint64, error)
+
+	// GetLog gets a log entry at a given index.
+	GetLog(index uint64, log *Log) error
+
+	// StoreLog stores a log entry.
+	StoreLog(log *Log) error
+
+	// StoreLogs stores multiple log entries.
+	StoreLogs(logs []*Log) error
+
+	// DeleteRange deletes a range of log entries. The range is inclusive.
+	DeleteRange(min, max uint64) error
+}
+
+// StableStore is used to provide stable storage
+// of key configurations to ensure safety.
+type StableStore interface {
+	Set(key []byte, val []byte) error
+
+	// Get returns the value for key, or an empty byte slice if key was not found.
+	Get(key []byte) ([]byte, error)
+
+	SetUint64(key []byte, val uint64) error
+
+	// GetUint64 returns the uint64 value for key, or 0 if key was not found.
+	GetUint64(key []byte) (uint64, error)
+}
+```
 
 下面是实例化 hashicorp raft 的例子.
 
@@ -46,6 +95,8 @@ func main() {
 	...
 }
 ```
+
+下面说下 hashicorp raft 存储的几种实现.
 
 ## InmemStore 内存型存储
 
