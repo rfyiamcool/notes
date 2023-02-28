@@ -2,7 +2,7 @@
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302271102100.png)
 
-badgerDB 是 golang 社区中性能排头部的 kv 存储引擎, badger 支持 wisckey 大value存储分离, 事务, 并发合并等特性.
+badgerDB 是 golang 社区中性能排头部的 kv 存储引擎, badger 支持 wisckey 大value存储分离, SSI 隔离的事务, Mvcc, 并发合并等等特性.
 
 本文主要分析 badger 读写下的事务的实现原理. golang badger 实现了 `Serializable Snapshot Isolation` 隔离级别的乐观并发控制事务模型. SSI 其原理是在事务读写操作时, 实现了跟踪记录读写操作, 在事务 Commit 提交时进行事务冲突检查. 检测的方法是如果当前事务中读取过的键key, 在事务执行的期间被其他事务修改过, 那么则会提交失败.
 
@@ -378,6 +378,7 @@ badger 中的事务实现的原理还是相对好理解的, badger 在事务中�
 
 事务冲突检测方法会检测当前提交事务内曾读取过的 keys, 在事务执行期间是否被其他事务更改过, 改过那么就算冲突, 不能写入, 上层可以进行重试.
 
-- badger set 和 delete 写操作, 只有在 commit 提交时才会真正的去写 db, 之前都是存储在 txn 中.
-- badger oracle 在 badger 里不仅实现了授时服务, 就是事务的时间生成, 还实现了类似事务管理器, 其内部维护了一段时间内的已提交事务, 用来做事务在提交时的冲突检测.
+- badgerdb 的所有操作都是以事务的方式进行的.
+- badgerdb set 和 delete 写操作, 只有在 commit 提交时才会真正的去写 db, 之前都是存储在 txn 中.
+- badgerdb oracle 在 badger 里不仅实现了授时服务, 就是事务的时间生成, 还实现了类似事务管理器, 其内部维护了一段时间内的已提交事务, 用来做事务在提交时的冲突检测.
 - waterMark 用来维护当前活动事务的水位线, 内部使用小顶堆排序事务ts, 主要目的用来事务的 gc 回收.
