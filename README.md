@@ -77,6 +77,8 @@
 
 - [源码分析 golang badger transaction 事务实现的设计和原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_transaction.md)
 
+- [源码分析 golang badger 写数据及持久化的实现原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_write.md)
+
 ### traefik
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_11.png" width="15%">
