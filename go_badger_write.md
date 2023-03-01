@@ -1,12 +1,28 @@
 # 源码分析 golang badger 写数据及持久化的实现原理
 
-上次分析了 badger 事务的实现原理, badger 中的读写都是在事务中进行的, Commit 提交会对 keys 进行冲突检测, 通过检测的 keys 才会被写入.
+在看 badger 代码之前，需要对 lsm tree 有一定的理解，不然无法理解 wal， memtable， immutable memtable，sstable，compact 的组件设计. 众多基于 lsm tree 的 kv 存储在实现上有些不同, 像 leveldb, rocksdb, badgerDB, pebbleDB 等存储引擎在 lsm tree 设计上大同小异.
 
-golang badger 的写流程大概是这样.
+**go badgerdb 的读写的流程**
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303011007026.png)
+
+写流程的调用顺序:
+
+`vlog -> wal -> memtable -> immutable memtable list -> ssts in Level0 -> major compact ...`
+
+读流程的调用顺序:
+
+`memtable -> immutable memtable list -> ssts in Level0 -> ssts in Level1 -> ssts in LevelN`
+
+**golang badger 写流程的函数调用过程**
+
+golang badger 写流程的函数调用过程大概是这样.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302282238751.png)
 
-事务提交后, 所有的写请求都会推到 `writeCh` 管道上, 由 `doWrites` 协程来处理写请求. 
+上次分析了 badger 事务的实现原理, badger 中的读写操作都是在事务中进行的, 事务 Commit 提交会对 keys 进行冲突检测, 通过检测的 keys 才会被写入.
+
+在事务提交后, 所有的写请求都会推到 `writeCh` 管道上, 由 `doWrites` 协程来处理写请求. 
 
 先判断 entry 的 value 是否属于大 value, 如果符合则需要把 value 写到 vlog 文件里, 然后把 entry 写到 wal 日志里, 接着再写到 memtable 里. 在处理写请求时, memtable 会转换为 immutable memtable, 然后经由 `flushMemtable` 把 memtable 构建为 sstable 对象, 最后经过数据经过加工和布局调整后进行持久化.
 
@@ -135,6 +151,20 @@ func (db *DB) writeRequests(reqs []*request) error {
 	return nil
 }
 ```
+
+### badger wisckey vlog 设计
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303011105863.png)
+
+badger 的 wisckey vlog 的设计还是很复杂的, 其设计目的是为了避免大 value 在 sstable compact 合并时带来的写放大问题.
+
+wisckey kv 单纯写的话好理解, 把大于 1MB 的 value 写到活动的 vlog 里, 在 memtable 和 sstable 只需要存 vptr (fid, len, offset) 就可以了. 查询也好理解, 直接按照 vptr 的 fid 定位文件, len + offset 找到对应的 value. 但更新和删除操作就显得繁琐了, 因为后面还涉及到 vlog 空间整理和 gc 回收.
+
+leveldb, rocksdb 本身是没有实现 wisckey kv 分离, 但不少公司基于 rocksdb 开发了含有 wisckey 的存储引擎, 比如 pingcap 的 `titan` 和字节的 `TerarkDB`, 但跟 badgerDB 实现上都有些不同, 篇幅有限, 按下不表.
+
+wisckey kv 分离的论文. [https://www.usenix.org/system/files/conference/fast16/fast16-papers-lu.pdf](https://www.usenix.org/system/files/conference/fast16/fast16-papers-lu.pdf)
+
+### ensureRoomForWrite 切换新的 memtable
 
 `ensureRoomForWrite` 内部会传递 flush 事件, 把当前的 memtable 加到 immutable memtable 集合里. 还有创建一个新的 memtable 赋值到 db.memtable.
 
@@ -470,8 +500,10 @@ Structure of Block.
 
 ## 总结
 
-![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302282238751.png)
+golang badger 写流程的函数调用过程大概是这样.
 
-事务提交后, 所有的写请求都会推到 writeCh 管道上, 由 `doWrites` 协程来处理写请求. 
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303011007026.png)
 
-先判断 entry 的 value 是否属于大 value, 如果符合则需要把 value 写到 vlog 文件里, 然后把 entry 写到 wal 日志里, 接着再写到 memtable 里. 在处理写请求时, memtable 会转换为 immutable memtable, 然后经由 flushMemtable 把 memtable 构建为 sstable 对象, 最后经过数据经过加工和布局调整后进行持久化.
+在事务提交后, 所有的写请求都会推到 `writeCh` 管道上, 由 `doWrites` 协程来处理写请求. 
+
+先判断 entry 的 value 是否属于大 value, 如果符合则需要把 value 写到 vlog 文件里, 然后把 entry 写到 wal 日志里, 接着再写到 memtable 里. 在处理写请求时, memtable 会转换为 immutable memtable, 然后经由 `flushMemtable` 把 memtable 构建为 sstable 对象, 最后经过数据经过加工和布局调整后进行持久化.
