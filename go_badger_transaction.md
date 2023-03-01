@@ -10,7 +10,7 @@ badgerDB 是 golang 社区中性能排头部的 kv 存储引擎, badger 支持 w
 
 ## update 事务更新入口
 
-下面是使用 db.update 读写的 db 的例子.
+下面是使用 db.Update() 事务进行读写的 db 的例子. db.View 是只读事务, 传入的事务处理方法只能是 Get(), 如果使用 Set() 则直接异常. db.Update 是可以进行读写事务, 不仅可以读, 也可以写.
 
 ```go
 package main
@@ -35,6 +35,10 @@ func main() {
 		txn.Get([]byte("url"))
 		return nil
 	})
+
+	if err != nil {
+		panic(err.Error())
+	}
 }
 ```
 
