@@ -1,4 +1,4 @@
-# 源码分析 golang badger 存储引擎读取数据的流程
+# 源码分析 golang badger 存储引擎读取数据的原理
 
 badger 读取的过程跟其他基于 lsm tree 实现的数据库基本一致. 先从 memtable 集合里查找, 然后再从 immutable memtables 集合里查找, 接着从上往下从 levels 各层进行查找.
 
