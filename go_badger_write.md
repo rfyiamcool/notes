@@ -175,7 +175,8 @@ func (db *DB) ensureRoomForWrite() error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
-	y.AssertTrue(db.mt != nil) // A nil mt indicates that DB is being closed.
+	y.AssertTrue(db.mt != nil)
+	// 当 memtable 空间大于 64MB, 或者关联的 wal 超过了 64MB, 则需要持久化.
 	if !db.mt.isFull() {
 		return nil
 	}
@@ -194,6 +195,20 @@ func (db *DB) ensureRoomForWrite() error {
 	default:
 		return errNoRoom
 	}
+}
+```
+
+`isFull()` 会通过判断当前 memtable skiplist Arena 空间或者 wal 空间是否超过了 64MB, 如超过阈值, 则需要进行刷盘操作. badger 默认的 opt.MemTableSize 为 64MB.
+
+```go
+func (mt *memTable) isFull() bool {
+	if mt.sl.MemSize() >= mt.opt.MemTableSize {
+		return true
+	}
+	if mt.opt.InMemory {
+		return false
+	}
+	return int64(mt.wal.writeAt) >= mt.opt.MemTableSize
 }
 ```
 
