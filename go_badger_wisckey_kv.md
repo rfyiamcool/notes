@@ -4,15 +4,17 @@
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303011105863.png)
 
-badger 的 wisckey vlog 的设计还是很复杂的, 其设计目的是为了避免大 value 在 sstable compact 合并时带来的写放大问题.
+badger 的 wisckey vlog 的实现原理颇为复杂, 其设计目的是为了避免大 value 在 sstable compact 合并时带来的写放大问题.
 
-wisckey kv 单纯写的话好理解, 把大于 1MB 的 value 写到活动的 vlog 里, 在 memtable 和 sstable 只需要存 vptr (fid, len, offset) 就可以了. 查询也好理解, 直接按照 vptr 的 fid 定位文件, len + offset 找到对应的 value. 但更新和删除操作就显得繁琐了, 因为后面还涉及到 vlog 空间整理和 gc 回收.
+wisckey kv 写流程是这样, 写入时会把大于 1MB 的 value 写到活动的 vlog 里, 在 memtable 和 sstable 只需要存 vptr (fid, len, offset) 就可以了. 
+
+查询流程大概这样, 直接按照 vptr 的 fid 定位文件, len + offset 找到对应的 value. 但更新和删除操作就显得繁琐了, 因为后面还涉及到 vlog 空间整理和 gc 回收.
 
 leveldb, rocksdb 本身是没有实现 wisckey kv 分离, 但不少公司基于 rocksdb 开发了含有 wisckey 的存储引擎, 比如 pingcap 的 `titan` 和字节的 `TerarkDB`, 但跟 badgerDB 实现上都有些不同, 篇幅有限, 按下不表.
 
 wisckey kv 分离的论文. [https://www.usenix.org/system/files/conference/fast16/fast16-papers-lu.pdf](https://www.usenix.org/system/files/conference/fast16/fast16-papers-lu.pdf)
 
-## wisckey write 写数据流程
+## badger wisckey write 写数据流程原理
 
 `write` 写方法实现了 badger 的 wisckey kv 分离存储的逻辑, 其内部实现流程如下. 
 
@@ -236,7 +238,7 @@ func (lf *logFile) encodeEntry(buf *bytes.Buffer, e *Entry, offset uint32) (int,
 }
 ```
 
-## badger wisckey vlog read 读数据流程
+## badger wisckey vlog read 读数据流程原理
 
 `Read` 是 vlog 提供的读取接口, 可通过传入 vptr 来获取 vlog 中对应的数据.
 
@@ -377,15 +379,27 @@ func (lf *logFile) read(p valuePointer) (buf []byte, err error) {
 }
 ```
 
-## badger wisckey garbage collection 空间回收和重写
+## badger wisckey garbage collection 空间回收和重写的设计
+
+**为什么需要对 vlog 进行垃圾回收?**
+
+badger 在写大 value 时, 根据 wisckey 设计在 lsm tree 里只写 vptr, 而不需要把整个大 value 都写到 lsm tree 中, 大 value 会写到 value log 日志里. 
+
+当这些 key 发生变更时, 以前的旧数据就属于脏数据了, vlog 中会存有各版本的数据. 随着长期的更新数据, 脏数据累计越来越多, 势必造成存储空间的浪费. 所以需要 gc 垃圾回收来解决 vlog 中的脏数据. 
+
+**gc 实现过程**
+
+badger 的实现跟 wisckey 论文差不多, 遍历 vlog 中的每个数据, 拿 vlog 中的数据跟 lsm tree 的数据做对比, 把 fid 和 offset 一样的数据放到缓冲池里, 最后调用 badger 的批量写接口把缓冲池里的数据写进去, 接着尝试删除该 vlog.
+
+### wisckey gc 的启动入口
 
 badger 存储引擎内部默认没有开启协程去做 wisckey vlog 的空间回收, 需要上层代码自己来周期性的定时 gc 垃圾回收. 
 
-下面是自定义定时器执行 wisckey vlog gc 垃圾回收的方法.
+下面是自定义定时器调用 wisckey vlog gc 垃圾回收的方法, 另外执执行垃圾回收一定要在业务低峰期来执行, 且频率不能高.
 
 ```go
 func() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(30 * time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
 	again:
@@ -503,12 +517,6 @@ LOOP:
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303022210681.png)
 
 `rewrite` 重写方法用来实现 wisckey 论文里的垃圾回收, 也可以理解为空间的合并整理. 
-
-为什么需要对 value log 进行垃圾回收? 
-
-badger 在写大 value 时, 在 lsm tree 里只需要写 vptr, 而不需要把整个大 value 都写到 lms tree 里, 大 value 会写到 value log 日志里. 当大 value 的 key 发生读写删除时, 旧数据就是脏数据了. 随着长期的更新数据, 脏数据会越来越多, 无效的空间占用是个大问题.  所以需要 gc 垃圾回收来解决 vlog 中的脏数据. 
-
-badger 的实现跟 wisckey 论文差不多, 遍历 vlog 中的每个数据, 拿 vlog 中的数据跟 lsm tree 的数据做对比, 把 fid 和 offset 一样的数据放到缓冲池里, 最后调用 badger 的批量写接口把缓冲池里的数据写进去, 接着尝试删除该 vlog.
 
 ```go
 func (vlog *valueLog) rewrite(f *logFile) error {
