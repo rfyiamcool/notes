@@ -192,20 +192,22 @@ func (db *DB) getMemTables() ([]*memTable, func()) {
 
 	var tables []*memTable
 
-	// Mutable memtable does not exist in read-only mode.
 	if !db.opt.ReadOnly {
-		// Get mutable memtable.
+		// 添加当前的 memtable
 		tables = append(tables, db.mt)
 		db.mt.IncrRef()
 	}
 
-	// Get immutable memtables.
 	last := len(db.imm) - 1
 	for i := range db.imm {
+		// 按照新旧顺序添加不可变只读的 memtable
 		tables = append(tables, db.imm[last-i])
 		db.imm[last-i].IncrRef()
 	}
+
 	return tables, func() {
+		// 解除引用计数
+		// badger 内部大量的使用 ref 的概念, 当为 0 时, 那么 badger gc 就会删除.
 		for _, tbl := range tables {
 			tbl.DecrRef()
 		}
@@ -411,6 +413,8 @@ func (t *Table) fetchIndex() *fb.TableIndex {
 
 至于 bloomfilter 的原理没什么可说的, badger bf 内部会进行 k := f[len(f)-1] 次计算, 只要有一个 false，那么就说明 key 绝对不存在, 如果都命中, 根据 bf 的设计必然会有假阳性的存在, key 可能存在, 也可能不存在.
 
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303020759863.png)
+
 #### seek 深入 sstable 寻找 entry 
 
 `seekFrom` 方法用来在 sstable 里获取 entry. 其内部先使用二分查找算法在 sstable 里找到 block, 然后依然使用二分算法从对应的 block 中找到对应的 entry.
@@ -501,6 +505,45 @@ func (itr *blockIterator) seek(key []byte, whence int) {
 
 	// 配置迭代器的位置, 把获取的 value 放到 iter 的 value
 	itr.setIdx(foundEntryIdx)
+}
+```
+
+## badger ref 引用计数设计
+
+badger 的内部大量在使用 ref 引用计数的概念, 每次使用前原子加一, 完成后解除引用. 只要不为空, 那么 badger 内部就不会删除, 反之当 ref 为 0 时, badger 会发起删除操作.
+
+badger 内部的 table 和 memtable.skiplist 都有引用计数的设计, 其目的在于 badger gc 操作.
+
+```go
+type Table struct {
+	sync.Mutex
+	*z.MmapFile
+
+	// ...
+	ref    atomic.Int32 // For file garbage collection
+	// ...
+}
+
+type Skiplist struct {
+	height  atomic.Int32
+	head    *node
+	ref     atomic.Int32
+	arena   *Arena
+	OnClose func()
+}
+
+func (t *Table) DecrRef() error {
+	newRef := t.ref.Add(-1)
+	if newRef == 0 {
+		// 当无引用时, 进行删除操作.
+		for i := 0; i < t.offsetsLength(); i++ {
+			t.opt.BlockCache.Del(t.blockCacheKey(i))
+		}
+		if err := t.Delete(); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 ```
 
