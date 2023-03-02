@@ -1,6 +1,6 @@
 # 源码分析 golang badger wisckey kv存储分离的设计实现原理
 
-## kv wisckey
+## 存储引擎的 wisckey kv 存储分离设计
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303011105863.png)
 
@@ -13,6 +13,13 @@ leveldb, rocksdb 本身是没有实现 wisckey kv 分离, 但不少公司基于 
 wisckey kv 分离的论文. [https://www.usenix.org/system/files/conference/fast16/fast16-papers-lu.pdf](https://www.usenix.org/system/files/conference/fast16/fast16-papers-lu.pdf)
 
 ## wisckey write 写数据流程
+
+`write` 写方法实现了 badger 的 wisckey kv 分离存储的逻辑, 其内部实现流程如下. 
+
+1. 遍历传入的 request 数组, 判断是否满足了大 value 的阈值, 不满足忽略.
+2. 对满足大 value 的 entry 进行编码, 然后写到 vlog mmap 空间里.
+3. 如果当前的 vlog 超过了 1GB 的阈值或者 kv 个数超过了 100w 条, 则需要同步刷盘, 且重建新文件.
+4. 退出前需要进行 sync 刷盘, 当前提前是开启了 SyncWrites 同步选项.
 
 ```go
 // write is thread-unsafe by design and should not be called concurrently.
@@ -183,6 +190,8 @@ func (lf *logFile) doneWriting(offset uint32) error {
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302282250941.png)
 
+对 entry 进行编码后写到传入的 buf 空间里.
+
 ```go
 func (lf *logFile) encodeEntry(buf *bytes.Buffer, e *Entry, offset uint32) (int, error) {
 	// 构建 header struct
@@ -229,7 +238,16 @@ func (lf *logFile) encodeEntry(buf *bytes.Buffer, e *Entry, offset uint32) (int,
 
 ## badger wisckey vlog read 读数据流程
 
+`Read` 是 vlog 提供的读取接口, 可通过传入 vptr 来获取 vlog 中对应的数据.
+
 ```go
+// vptr 的数据结构
+type valuePointer struct {
+	Fid    uint32
+	Len    uint32
+	Offset uint32
+}
+
 func (vlog *valueLog) Read(vp valuePointer, _ *y.Slice) ([]byte, func(), error) {
 	// 通过传入的 vp 获取对应 fid 的 logfile 对象, 并通过 vtpr 的 offset 和 len 读取到数据.
 	buf, lf, err := vlog.readValueBytes(vp)
@@ -242,12 +260,18 @@ func (vlog *valueLog) Read(vp valuePointer, _ *y.Slice) ([]byte, func(), error) 
 
 	// 如果开启 checksum 校验, 则需要验证 crc 校验码.
 	if vlog.opt.VerifyValueChecksum {
+		// 获取 hash 计算器
 		hash := crc32.New(y.CastagnoliCrcTable)
+
+		// 把 header + kv 写入到 hash 计算器
 		if _, err := hash.Write(buf[:len(buf)-crc32.Size]); err != nil {
 			return nil, nil, y.Wrapf(err, "failed to write hash for vp %+v", vp)
 		}
 
+		// 获取 checksum 校验码
 		checksum := buf[len(buf)-crc32.Size:]
+
+		// 如果通过 hash 计算的 crc 跟写入的 crc 不一致, 则返回异常.
 		if hash.Sum32() != y.BytesToU32(checksum) {
 			return nil, nil, y.Wrapf(y.ErrChecksumMismatch, "value corrupted for vp: %+v", vp)
 		}
@@ -281,11 +305,85 @@ func (vlog *valueLog) Read(vp valuePointer, _ *y.Slice) ([]byte, func(), error) 
 }
 ```
 
-## badger wisckey gc 空间回收和重写
+### readValueBytes
 
-badger 内部不会开启一个协程去做 wisckey vlog 的空间回收, 需要上层代码自己来周期性的定时 gc 回收.
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303022239912.png)
 
+`readValueBytes` 用来获取 valuePointer 对应的 logfile 和对应的 value, 这里的 value 不是 key 真正的 value, 而是 log entry, 含有 header、key、value、crc32 的结构体.
+
+```go
+func (vlog *valueLog) readValueBytes(vp valuePointer) ([]byte, *logFile, error) {
+	lf, err := vlog.getFileRLocked(vp)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	buf, err := lf.read(vp)
+	return buf, lf, err
+}
 ```
+
+`getFileRLocked` 用来获取 fid 对应的 logfile 对象.
+
+```go
+func (vlog *valueLog) getFileRLocked(vp valuePointer) (*logFile, error) {
+	vlog.filesLock.RLock()
+	defer vlog.filesLock.RUnlock()
+
+	// 获取 fid 对应的 logfile 对象
+	ret, ok := vlog.filesMap[vp.Fid]
+	if !ok {
+		return nil, errors.Errorf("file with ID: %d not found", vp.Fid)
+	}
+
+	maxFid := vlog.maxFid
+	if !vlog.opt.ReadOnly && vp.Fid == maxFid {
+		currentOffset := vlog.woffset()
+
+		// vptr 的 offset 偏移量大于当前 vlog 的最大 offset, 返回异常.
+		if vp.Offset >= currentOffset {
+			return nil, errors.Errorf(
+				"Invalid value pointer offset: %d greater than current offset: %d",
+				vp.Offset, currentOffset)
+		}
+	}
+
+	ret.lock.RLock()
+	return ret, nil
+}
+```
+
+`logFile.read` 用来获取 logfile 日志里 vptr 的数据.
+
+```go
+func (lf *logFile) read(p valuePointer) (buf []byte, err error) {
+	var nbr int64
+	offset := p.Offset
+	size := int64(len(lf.Data))
+	valsz := p.Len
+	lfsz := lf.size.Load()
+
+	// 异常的条件
+	if int64(offset) >= size || int64(offset+valsz) > size ||
+		int64(offset+valsz) > int64(lfsz) {
+		err = y.ErrEOF
+	} else {
+
+		// 返回 [offset: offset+len] 区间的数据.
+		buf = lf.Data[offset : offset+valsz]
+		nbr = int64(valsz)
+	}
+	return buf, err
+}
+```
+
+## badger wisckey garbage collection 空间回收和重写
+
+badger 存储引擎内部默认没有开启协程去做 wisckey vlog 的空间回收, 需要上层代码自己来周期性的定时 gc 垃圾回收. 
+
+下面是自定义定时器执行 wisckey vlog gc 垃圾回收的方法.
+
+```go
 func() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
@@ -299,9 +397,9 @@ func() {
 }
 ```
 
-`RunValueLogGC` 方法是 badger 进行 vlog 回收的入口方法, 判断 ratio 值的合理性, 数值需要在 0-1 之间. 文档中有使用 `0.7`.
+`RunValueLogGC` 方法是 badger 进行 wisckey vlog 垃圾回收的入口方法, 其内部会判断 ratio 值的合理性, 数值需要在 `0 - 1` 之间. badger 文档中有使用 `0.7` 作为 discardRatio 比率.
 
-```
+```go
 func (db *DB) RunValueLogGC(discardRatio float64) error {
 	if db.opt.InMemory {
 		return ErrGCInMemoryMode
@@ -351,6 +449,8 @@ func (vlog *valueLog) doRunGC(lf *logFile) error {
 
 ### pickLog 选择需要回收的 valuelog 文件 
 
+`pickLog` 用来遍历获取 discard 值最大的 logfile. 每个 vlog 都会记录 discardStats 统计信息, discard 值的代表 vlog 文件中的脏数据占用的空间大小.
+
 ```go
 func (vlog *valueLog) pickLog(discardRatio float64) *logFile {
 	vlog.filesLock.RLock()
@@ -399,6 +499,16 @@ LOOP:
 ```
 
 ### rewrite 重写 wisckey vlog 数据文件
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303022210681.png)
+
+`rewrite` 重写方法用来实现 wisckey 论文里的垃圾回收, 也可以理解为空间的合并整理. 
+
+为什么需要对 value log 进行垃圾回收? 
+
+badger 在写大 value 时, 在 lsm tree 里只需要写 vptr, 而不需要把整个大 value 都写到 lms tree 里, 大 value 会写到 value log 日志里. 当大 value 的 key 发生读写删除时, 旧数据就是脏数据了. 随着长期的更新数据, 脏数据会越来越多, 无效的空间占用是个大问题.  所以需要 gc 垃圾回收来解决 vlog 中的脏数据. 
+
+badger 的实现跟 wisckey 论文差不多, 遍历 vlog 中的每个数据, 拿 vlog 中的数据跟 lsm tree 的数据做对比, 把 fid 和 offset 一样的数据放到缓冲池里, 最后调用 badger 的批量写接口把缓冲池里的数据写进去, 接着尝试删除该 vlog.
 
 ```go
 func (vlog *valueLog) rewrite(f *logFile) error {
@@ -451,11 +561,6 @@ func (vlog *valueLog) rewrite(f *logFile) error {
 		if vp.Offset > e.offset {
 			return nil
 		}
-
-		// If the entry read from LSM Tree and vlog file point to the same vlog file and offset,
-		// insert them back into the DB.
-		// NOTE: It might be possible that the entry read from the LSM Tree points to
-		// an older vlog file. See the comments in the else part.
 
 		// 如果 fid 和 offset 一致, 则重新写到 lsm tree 里.
 		if vp.Fid == f.fid && vp.Offset == e.offset {
@@ -555,7 +660,7 @@ func (vlog *valueLog) rewrite(f *logFile) error {
 }
 ```
 
-把需要写入的数据重新提交到 badger 的写接口, 也就是需要被重写的 kv 重新走一遍 badger 写流程. 简述下 badger 写流程, 先写 wisckey vlog, 再写 wal, 接着把数据写到 memtable, 后面等到 flush 协程把活跃的 memtable 添加到 immutable tables 集合里, 按照策略把 immutable memtable 刷盘到 Level0 层, 后面就是 compact 合并压缩重排的事情了.
+把缓冲池里的待写入数据重新提交到 badger 的写接口, 也就是需要被重写的 kv 重新走一遍 badger 写流程. 简述下 badger 写流程, 先写 wisckey vlog, 再写 wal, 接着把数据写到 memtable, 后面等到 flush 协程把活跃的 memtable 添加到 immutable tables 集合里, 按照策略把 immutable memtable 刷盘到 Level0 层, 后面就是 compact 合并压缩重排的事情了.
 
 ```go
 func (db *DB) batchSet(entries []*Entry) error {
@@ -572,4 +677,4 @@ func (db *DB) batchSet(entries []*Entry) error {
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303011105863.png)
 
-到此 badgerDB wisckey 的原理分析完了.
+到此 badgerDB wisckey 读写流程及垃圾回收的原理分析完了.
