@@ -1,4 +1,4 @@
-# 源码分析 golang badgerDB compaction 并行合并的实现原理
+# 源码分析 golang badgerDB compaction 并发合并的实现原理
 
 本文通过源码分析 badgerDB compaction 合并的实现原理. badger compaction 的实现跟 rocksdb 的实现大同小异, 像动态 level 空间阈值的计算、打分策略、并发 compaction 的实现参考了 rocksdb 的设计实现.
 
