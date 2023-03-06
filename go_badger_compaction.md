@@ -1,6 +1,10 @@
-# 源码分析 golang badgerDB compaction 并发合并的实现原理
+# 源码分析 golang badger parallel compaction 并行合并的实现原理
 
 本文通过源码分析 badgerDB compaction 合并的实现原理. badger compaction 的实现跟 rocksdb 的实现大同小异, 像动态 level 空间阈值的计算、打分策略、并发 compaction 的实现参考了 rocksdb 的设计实现.
+
+下面是 badger parallel compaction 并行合并的函数调用关系.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303061451490.png)
 
 ## 为什么 lsmtree 需要 compaction 合并?
 
@@ -46,7 +50,7 @@ badgerDB, RocksDB 的 compaction 分为 minor 和 major compaction 合并.
 
 ## 初始化 compact 逻辑
 
-badgerDB 默认启动 4 个 compactor 表合并协程, 该配置可以修改, 但最小为 2.
+badgerDB 默认启动 4 个并发合并协程, 该配置可以启动时进行修改. badger 合并的并行并发, 后面有分析其实现原理.
 
 代码位置: `badger/levels.go:startCompact()`
 
@@ -108,6 +112,7 @@ func (s *levelsController) runCompactor(id int, lc *z.Closer) {
 		return false
 	}
 
+	// 只要成功合并一次就退出.
 	runOnce := func() bool {
 		// 获取需要进行压缩合并的 level 的状态, adjusted, score 分值信息等
 		prios := s.pickCompactLevels()
@@ -115,6 +120,8 @@ func (s *levelsController) runCompactor(id int, lc *z.Closer) {
 			// 如果 worker 为 0, 则优先压缩合并 L0.
 			prios = moveL0toFront(prios)
 		}
+
+		// 只要成功合并一次就退出.
 		for _, p := range prios {
 			if id == 0 && p.level == 0 {
 				// ...
@@ -329,6 +336,8 @@ func (s *levelsController) levelTargets() targets {
 
 ### doCompact
 
+获取需要参与合并的 tables 和 keyRange 范围, 然后调用 `runCompactDef` 执行合并操作.
+
 ```go
 // doCompact picks some table on level l and compacts it away to the next level.
 func (s *levelsController) doCompact(id int, p compactionPriority) error {
@@ -355,7 +364,10 @@ func (s *levelsController) doCompact(id int, p compactionPriority) error {
 		}
 	} else {
 		cd.nextLevel = cd.thisLevel
+
+		// 最后一层无需进行发起 compact 合并操作.
 		if !cd.thisLevel.isLastLevel() {
+			// 获取下层 level 的 levelHandler 对象.
 			cd.nextLevel = s.levels[l+1]
 		}
 		// 添加 tables 到 cd 里.
@@ -371,6 +383,88 @@ func (s *levelsController) doCompact(id int, p compactionPriority) error {
 
 	// ...
 	return nil
+}
+```
+
+### fillTables 获取参与合并的上下层 tables 和 起始结束位置
+
+`fillTables` 用来获取需要被合并的 tables 和 keyRange 范围, 该计算的过程还是有些绕, 请对照源码好好理解.
+
+先对上层的 level 的 tables 进行 maxVersion 排序, 优先选择版本较旧的 table, 事务 version 低就意味着该 table 相对旧, badger 也参考了 rocksdb kOldestLargestSeqFirst 设计优先去合并较老的table. 
+
+遍历排序过的 tables 集合, 找到跟当前 table 的 keyRange 有重叠的下层 tables 集合, 还需要配置 thisRange 起始位置, nextRange 结束位置, cd.top 上层 tables 集合及 cd.bot 关联的下层 tables 集合.
+
+`fillTables` 里只要匹配到一个可用的上层 table 就退出函数了, 另外上层的一个 table 的 keyRange 可能对应下层多个 table, 合并时需要把上下层有的 tables 都进行合并.
+
+```go
+func (s *levelsController) fillTables(cd *compactDef) bool {
+	cd.lockLevels()
+	defer cd.unlockLevels()
+
+	// 把上层 level 的 tables 加到 tables 对象里.
+	tables := make([]*table.Table, len(cd.thisLevel.tables))
+	copy(tables, cd.thisLevel.tables)
+	if len(tables) == 0 {
+		return false
+	}
+
+	// 如果 thisLevel 为最后的 level, 走下面的方法.
+	if cd.thisLevel.isLastLevel() {
+		return s.fillMaxLevelTables(tables, cd)
+	}
+
+	// 对 tables 进行事务 version 大小排序, 因为 compact 合并是需要先处理老表.
+	// 通过 table 的 maxVersion 事务版本判断 table 的新旧, 小 version 自然是老表.
+	// 这个也是参考 rocksDB kOldestLargestSeqFirst 优先处理设计.
+	s.sortByHeuristic(tables, cd)
+
+	// 遍历排序过的 tables, 优先处理 maxVersion 旧的 table.
+	for _, t := range tables {
+		cd.thisSize = t.Size()
+		// 赋值开始的 keyRange 边界
+		cd.thisRange = getKeyRange(t)
+		// 如果已经合并过这个 key range, 则跳出.
+		if s.cstatus.overlapsWith(cd.thisLevel.level, cd.thisRange) {
+			continue
+		}
+		cd.top = []*table.Table{t}
+
+		// 计算出下层跟 thisRange 发生重叠的 tables 的数组索引.
+		left, right := cd.nextLevel.overlappingTables(levelHandlerRLocked{}, cd.thisRange)
+
+		// 把下层 level 发生重叠的 tables 写到 bot 里.
+		cd.bot = make([]*table.Table, right-left)
+		copy(cd.bot, cd.nextLevel.tables[left:right])
+
+		// 如果在下层 level 找不到跟该 table keyRange 匹配的 tables, 也就是没有重叠部分, 也没问题的, 直接返回.
+		if len(cd.bot) == 0 {
+			cd.bot = []*table.Table{}
+
+			// 设置两点合一, compact 时会处理该情况.
+			cd.nextRange = cd.thisRange
+			if !s.cstatus.compareAndAdd(thisAndNextLevelRLocked{}, *cd) {
+				continue
+			}
+			return true
+		}
+		// 配置结束的 keyRnage 边界
+		cd.nextRange = getKeyRange(cd.bot...)
+
+		// 判断 nextRange 在下层 level 的重叠情况.
+		if s.cstatus.overlapsWith(cd.nextLevel.level, cd.nextRange) {
+			continue
+		}
+
+		// 记录当前的 compactDef 到 cstatus.
+		if !s.cstatus.compareAndAdd(thisAndNextLevelRLocked{}, *cd) {
+			continue
+		}
+
+		// 直接跳出
+		// 一次就获取一个 sstable 相关合并参数后就退出.
+		return true
+	}
+	return false
 }
 ```
 
@@ -456,12 +550,12 @@ func (s *levelsController) runCompactDef(id, l int, cd compactDef) (err error) {
 
 跨度值为 `int(math.Ceil(float64(len(cd.bot)) / 5.0))`, 然后遍历 tables, 挑选出取摸匹配到跨度值的 table 的最大 key. 
 
-当某 level 的 sstable 很多, 每个 sstable 都有一个 keyRange, 为了避免太多的并发, 这里设计了跨度的概念, 当等于 5 时, 每五个为一个 split 点, 25 个 sstable 只需要 5个 split.
+当某 level 的 sstable 很多时, 为了避免太多的并发, 这里设计了跨度的概念, 每五个 sstable 为一个 split 点, 25 个 sstable 只需要 5个 split. compact 时按照跨度修剪过的 split 粒度, 并发去执行 subcompact 子合并.
 
 ```go
 // addSplits can allow us to run multiple sub-compactions in parallel across the split key ranges.
 func (s *levelsController) addSplits(cd *compactDef) {
-	cd.splits = cd.splits[:0]
+	cd.splits = cd.splits[:0] // 重置 slice 的 len, 对象复用.
 
 	// 选出跨度, 底部的 tables 数量 / 5 为 跨度.
 	width := int(math.Ceil(float64(len(cd.bot)) / 5.0))
@@ -469,13 +563,21 @@ func (s *levelsController) addSplits(cd *compactDef) {
 	if width < 3 {
 		width = 3
 	}
+
+	// 当前的左边界.
 	skr := cd.thisRange
+
+	// 当前的右边界.
 	skr.extend(cd.nextRange)
 
 	addRange := func(right []byte) {
+		// 设置 keyRange 的右边界
 		skr.right = y.Copy(right)
+
+		// 添加新的 split keyRange.
 		cd.splits = append(cd.splits, skr)
 
+		// 当前 keyRange 的左边界为上一个 split 的右边界.
 		skr.left = skr.right
 	}
 
@@ -552,6 +654,8 @@ func (s *levelsController) compactBuildTables(
 		// 遍历 key range 范围集, 并按照 keyRange 并发 sstable 合并.
 		go func(kr keyRange) {
 			defer inflightBuilders.Done(nil)
+
+			// 构建迭代器.
 			it := table.NewMergeIterator(newIterator(), false)
 			defer it.Close()
 
@@ -594,6 +698,8 @@ func (s *levelsController) compactBuildTables(
 	return newTables, func() error { return decrRefs(newTables) }, nil
 }
 ```
+
+badger 的 `subcompact` 的实现也是参考的 rocksdb 设计, 每个 subcompact 子合并都是一个并发单元.
 
 #### subcompact 按照 key-range 进行合并
 
@@ -717,7 +823,7 @@ func (s *levelsController) subcompact(it y.Iterator, kr keyRange, cd compactDef,
 
 ### replaceTables
 
-`replaceTables` 用来在 level 层删除需要删除已被用来 compact 的旧表, 且添加 compact 新生成的表.
+`replaceTables` 用来删除下层 level 中已被用来 compact 的旧表, 且添加经过合并 compact 新生成的新表.
 
 ```go
 func (s *levelHandler) replaceTables(toDel, toAdd []*table.Table) error {
@@ -834,7 +940,19 @@ func (t *Table) DecrRef() error {
 }
 ```
 
+## badger parallel compaction 并行并发合并
+
+badger 默认开了 4 个合并协程. 每个协程周期性检测是否需要合并. 当检测到有 level 需要被合并时, 通常只会选择一个上层 table 进行操作, 而其他协程可对同一个 level 的不同 table 进行并行合并操作. 
+
+另外 badger 参考了 rocksdb subcompact 的子合并设计, 当一个上层 table keyRange 覆盖多个下层 tables 时, 这里可以切成多个 keyRange 进行 subcompact 并发子合并.
+
+所以说, badger 的合并有两个并行的维度. 一个是最优 level 的某个 table 进行合并, 另一个是当 table keyRange 对应很多下层table时, 可以使用 subcompact 进行并发合并.
+
 ## 总结
+
+下面是 badger parallel compaction 并行合并的函数调用关系.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303061451490.png)
 
 为什么需要 lsmtree compaction 合并?
 
