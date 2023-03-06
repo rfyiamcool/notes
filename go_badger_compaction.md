@@ -701,6 +701,8 @@ func (s *levelsController) compactBuildTables(
 
 badger 的 `subcompact` 的实现也是参考的 rocksdb 设计, 每个 subcompact 子合并都是一个并发单元.
 
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303062248653.png)
+
 #### subcompact 按照 key-range 进行合并
 
 `compactBuildTables` 会遍历计算出来的 key-range 集合, 且分别开协程异步去执行 `subcompact` 方法. `subcompact` 方法会按照 keyRange 迭代器来遍历数据, 构建 sstable 且进行落盘, 并回传到 res 管道里.
