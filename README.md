@@ -81,7 +81,7 @@
 - [源码分析 golang badger 存储引擎写数据及持久化的实现原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_write.md)
 - [源码分析 golang badger 存储引擎读取数据的实现原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_read.md)
 - [源码分析 golang badger wisckey kv存储分离的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_wisckey_kv.md)
-- [源码分析 golang badgerDB compaction 并发合并的实现原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_compaction.md)
+- [源码分析 golang badger parallel compaction 并行合并的实现原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_compaction.md)
 
 ### traefik
 
