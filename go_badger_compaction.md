@@ -948,6 +948,10 @@ badger 默认开了 4 个合并协程. 每个协程周期性检测是否需要�
 
 所以说, badger 的合并有两个并行的维度. 一个是最优 level 的某个 table 进行合并, 另一个是当 table keyRange 对应很多下层table时, 可以使用 subcompact 进行并发合并.
 
+下面是 badger parallel compaction 大概实现效果.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303062248653.png)
+
 ## 总结
 
 下面是 badger parallel compaction 并行合并的函数调用关系.
