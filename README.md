@@ -77,6 +77,7 @@
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/notes/main/docs/images/go-badger-logo.png" width="15%">
 
+- [源码分析 golang badger 启动及优雅关闭的流程及实现原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_start_close.md)
 - [源码分析 golang badger transaction 事务实现的设计和原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_transaction.md)
 - [源码分析 golang badger 存储引擎写数据及持久化的实现原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_write.md)
 - [源码分析 golang badger 存储引擎读取数据的实现原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_read.md)
