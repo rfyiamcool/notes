@@ -1,5 +1,7 @@
 # 源码分析 golang badger 写数据及持久化的实现原理
 
+> 基于 badger `v4.0.1` 进行源码分析
+
 在看 badger 代码之前，需要对 lsm tree 有一定的理解，不然无法理解 wal， memtable， immutable memtable，sstable，compact 的组件设计. 众多基于 lsm tree 的 kv 存储在实现上有些不同, 像 leveldb, rocksdb, badgerDB, pebbleDB 等存储引擎在 lsm tree 设计上大同小异.
 
 **go badgerdb 的读写的流程**

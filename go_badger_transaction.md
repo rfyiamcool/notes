@@ -1,5 +1,7 @@
 # 源码分析 golang badger transaction 事务实现的设计和原理
 
+> 基于 badger `v4.0.1` 进行源码分析
+
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302271102100.png)
 
 badgerDB 是 golang 社区中性能排头部的 kv 存储引擎, badger 支持 wisckey 大value存储分离, SSI 隔离的事务, Mvcc, 并发合并等等特性.
