@@ -1,5 +1,7 @@
 # 源码分析 golang badger wisckey kv存储分离的设计实现原理
 
+> 基于 badger `v4.0.1` 进行源码分析
+
 基于 lsm-tree 实现的存储引擎会存在写放大问题, 写放大的是因为 lsmtree 中某个 level 的容量到达上限, 就会触发 compact 合并, 如果需要合并的数据量大, 需要花费更多的磁盘 IO 来读老 sstable 和写入新 sstable, 这样会影响当前 kv 存储引擎的读写性能. 
 
 `wiscKey` 是一种基于 kv 分离存储优化 lSM-tree 写放大的方法. 使用 wisckey 方法可以减少 lsm tree 中每层的数据量, 降低 compact 合并的频次, 也减少 compact 合并带来的性能开销.

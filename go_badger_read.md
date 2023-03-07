@@ -1,5 +1,7 @@
 # 源码分析 golang badger 存储引擎读取数据的原理
 
+> 基于 badger `v4.0.1` 进行源码分析
+
 badger 读取的过程跟其他基于 lsm tree 实现的数据库基本一致. 先从 memtable 集合里查找, 然后再从 immutable memtables 集合里查找, 接着从上往下从 levels 各层进行查找.
 
 level 0 层会有 key 范围重叠的情况, 所以要从所有符合条件的 sstable, 进行遍历查找. 到了 level 1 层后, 通过二分查找算法找到符合 key 范围的 sstable, level >= 1 层最多只有一个 sstable 满足 key 范围条件.
