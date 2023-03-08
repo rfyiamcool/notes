@@ -507,6 +507,50 @@ func (db *DB) openMemTable(fid, flags int) (*memTable, error) {
 }
 ```
 
+## badger 内部大量使用 mmap 文件映射
+
+badger 的 wal 和 sstable 的读写都使用了 mmap 文件映射. 还有 badger 在初始阶段构建 levelController 控制器时, 把所有的 sstable 和 wal 文件用 mmap 方式映射到进程地址空间里. 
+
+- 什么是 mmap ?
+- mmap 对比 read/write 的优缺点是什么?
+- mmap 内存占用情况 ?
+
+### 什么是 mmap
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303081415479.png)
+
+`mmap()` 是一种内存映射文件的方法，将一个文件映射到进程的地址空间，实现文件磁盘地址和一段进程虚拟地址的映射。实现这样的映射关系后，进程就可以采用指针的方式读写操作这一段内存，无需使用 read/write 系统调用函数. 另外, 在内核空间对这段区域的修改, 也直接反映用户空间.
+
+> es, kafka, pulsarMQ 和 rocketMQ 等等都使用 mmap 来管理文件.
+
+### 对比 `mmap` 和 `read/write` 的区别
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303081416678.png)
+
+read/write 系统调用的流程:
+
+1. 访问文件, 这涉及到用户态到内核态的转换.
+2. 从磁盘中读取文件中并写到 page cache 缓存中.
+3. 将 read 中需要的数据, 从 page cache 中拷贝到用户缓冲区中. 如果是写操作, 则需要把数据写到 page cache 里.
+
+整个过程还是比较繁琐, 涉及到用户和内核态之间的切换, 还有数据的拷贝.
+
+而 `mmap` 系统调用是将硬盘文件对应的 page cache 地址映射到进程地址空间里. 进程可以直接访问自身地址空间的虚拟地址来访问 `page cache` 中的页. 简单理解就是 mmap 后返回一个数组指针, 可直接对该数组进行读写操作.
+
+mmap 读写的流程:
+
+1. 使用 mmap 映射文件到进程的地址空间
+2. 直接从字节数组中读写数据即可.
+3. 手动执行 msync 或者等待内核进行同步刷盘操作.
+
+结论, mmap 会比 read/write 系统调用更加高效一些.
+
+### mmap 内存占用情况
+
+通过 mmap 的设计得知, mmap 映射的内存其实是 page cache 的, 而不是进程的内存, 通过监控看不到进程的 res 占用.
+
+经过测试后证实了该结论, 测试流程是先首先打开一个 10GB 大小的文件, 使用 mmap 对该文件进行映射, 接着遍历读完所有数据. 在运行过程中检测进程的内存使用情况, 内存情况也就 100MB 上下.
+
 ## 文件锁保证 badger db 文件安全
 
 badgerDB 是通过 `flock` 文件锁实现进程级别的锁, 用以确保只有一个进程可以打开 badger db, 在已被打开的情况下，其他进程会因拿不到而异常退出. leveldb 和 rocksdb 也是使用 flock 实现 db 读写安全.
