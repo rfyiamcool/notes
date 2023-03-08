@@ -513,7 +513,6 @@ badger 的 wal 和 sstable 的读写都使用了 mmap 文件映射. 还有 badge
 
 - 什么是 mmap ?
 - mmap 对比 read/write 的优缺点是什么?
-- mmap 内存占用情况 ?
 
 ### 什么是 mmap
 
@@ -543,13 +542,11 @@ mmap 读写的流程:
 2. 直接从字节数组中读写数据即可.
 3. 手动执行 msync 或者等待内核进行同步刷盘操作.
 
-结论, mmap 会比 read/write 系统调用更加高效一些.
+### mmap 小结
 
-### mmap 内存占用情况
+就读写性能来说, mmap 会比 read/write 系统调用更加高效一些, 当然read/write 易用性更好. 另外使用 mmap 可以更好的构建缓存, 比如原始数据在磁盘中, 一般构建缓存需要把数据放在内存中, 而使用 mmap 则实现的更加优雅. 
 
-通过 mmap 的设计得知, mmap 映射的内存其实是 page cache 的, 而不是进程的内存, 通过监控看不到进程的 res 占用.
-
-经过测试后证实了该结论, 测试流程是先首先打开一个 10GB 大小的文件, 使用 mmap 对该文件进行映射, 接着遍历读完所有数据. 在运行过程中检测进程的内存使用情况, 内存情况也就 100MB 上下.
+拿 badger 来说, memtable 中使用 skiplist 在内存中构建索引, 而 skiplist node 指向的 value则在 wal 中，而 wal 又使用 mmap 映射到进程地址空间. 对于上层应用来说 mmap 的空间当成一个 []byte 数组. sstable 也被 mmap 映射了, 由于 sstable 的文件结构布局是索引结构化的, 可以直接用 mmap 的空间做 sstable 缓存.
 
 ## 文件锁保证 badger db 文件安全
 
