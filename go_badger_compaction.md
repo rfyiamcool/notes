@@ -8,6 +8,10 @@
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303061451490.png)
 
+**golang badger kv 存储引擎实现原理系列的文章地址 (更新中)**
+
+[https://github.com/rfyiamcool/notes#golang-badger](https://github.com/rfyiamcool/notes#golang-badger)
+
 ## 为什么 lsmtree 需要 compaction 合并?
 
 ### 空间放大和读放大

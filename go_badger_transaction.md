@@ -10,6 +10,10 @@ badgerDB 是 golang 社区中性能排头部的 kv 存储引擎, badger 支持 w
 
 需要说明是 mysql serializable 事务级别使用了锁进行串行化操作, 而 PostgreSQL 则使用了 `Serializable Snapshot Isolation` 的乐观事务机制, 只有在提交时才会进行事务冲突检测, ssi 的事务模型是支持并发操作的. 另外 badger 的 ssi 的实现要比 pg 简单不少.
 
+**golang badger kv 存储引擎实现原理系列的文章地址 (更新中)**
+
+[https://github.com/rfyiamcool/notes#golang-badger](https://github.com/rfyiamcool/notes#golang-badger)
+
 ## update 事务更新入口
 
 下面是使用 db.Update() 事务进行读写的 db 的例子. db.View 是只读事务, 传入的事务处理方法只能是 Get(), 如果使用 Set() 则直接异常. db.Update 是可以进行读写事务, 不仅可以读, 也可以写.

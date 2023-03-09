@@ -1,4 +1,4 @@
-# 源码分析 golang badger 存储引擎读取数据的原理
+# 源码分析 golang badger 存储引擎读取数据的实现原理
 
 > 基于 badger `v4.0.1` 进行源码分析
 
@@ -11,6 +11,10 @@ sstable 内部的查询是先从 bloomfilter 布隆过滤器中查询, 如果命
 **go badgerdb 的读写流程**
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303011007026.png)
+
+**golang badger kv 存储引擎实现原理系列的文章地址 (更新中)**
+
+[https://github.com/rfyiamcool/notes#golang-badger](https://github.com/rfyiamcool/notes#golang-badger)
 
 ## badger Get 读取入口
 
