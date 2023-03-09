@@ -1,4 +1,4 @@
-# 源码分析 golang badger 启动及优雅关闭的流程及实现原理
+# 源码分析 golang badger 启动及优雅关闭的流程实现原理
 
 > 基于 badger `v4.0.1` 进行源码分析
 

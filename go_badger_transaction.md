@@ -1,10 +1,10 @@
-# 源码分析 golang badger transaction 事务实现的设计和原理
+# 源码分析 golang badger transaction SSI 事务的实现原理
 
 > 基于 badger `v4.0.1` 进行源码分析
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202302/202302271102100.png)
 
-badgerDB 是 golang 社区中性能排头部的 kv 存储引擎, badger 支持 wisckey 大value存储分离, SSI 隔离的事务, Mvcc, 并发合并等等特性.
+badgerDB 是 golang 社区中性能排头部的 kv 存储引擎, badger 支持 wisckey 大value存储分离, SSI 隔离的事务, MVCC, 并发合并等等特性.
 
 本文主要分析 badger 读写下的事务的实现原理. golang badger 实现了 `Serializable Snapshot Isolation` 隔离级别的乐观并发控制事务模型. SSI 其原理是在事务读写操作时, 实现了跟踪记录读写操作, 在事务 Commit 提交时进行事务冲突检查. 检测的方法是如果当前事务中读取过的键key, 在事务执行的期间被其他事务修改过, 那么则会提交失败.
 
