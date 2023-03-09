@@ -4,6 +4,10 @@
 
 本文主要分析 badger 的启动阶段的初始化流程, 以及关闭时如何减少数据的丢失.
 
+**golang badger kv 存储引擎实现原理系列的文章地址 (更新中)**
+
+[https://github.com/rfyiamcool/notes#golang-badger](https://github.com/rfyiamcool/notes#golang-badger)
+
 ## badger DB 的启动入口
 
 badgerDB 的启动流程略有些长, 其启动流程如下:
