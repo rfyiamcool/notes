@@ -6,6 +6,10 @@
 
 kubebrain 则去除了对 etcd 的依赖, 在架构可以上可以对接其他自定义分布式数据库. kubebrain 内部实现了 badgerdb 和 tikv 的存储结构. badgerdb 作为单机引擎适用于本地调试, 更推荐使用 tikv 作为数据存储引擎. 另外头条内部则使用 ByteKV 做 kubebrain 的数据存储引擎. ByteKV 未开源, 其架构跟 tikv 差不多. 头条有分享过 ByteKV 的实现原理, 有兴趣的朋友可以找下相关文章.
 
+**kubebrain github 地址**
+
+[https://github.com/kubewharf/kubebrain](https://github.com/kubewharf/kubebrain)
+
 ### 主从架构
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202301/202301161649948.png)
