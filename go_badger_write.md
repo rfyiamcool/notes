@@ -483,7 +483,13 @@ func CreateTable(fname string, builder *Builder) (*Table, error) {
 
 ## badger sstable 的数据布局
 
-table 的布局, 先排列 block 数据块, 接着排列 index 索引, 这里的索引为 bloomfilter 布隆过滤器, 后面开始排列 index 的 size, checksum 校验码, 最后为 checksum 校验码的 size.
+代码位置: `badger/builder.go`
+
+结合下图方便的理解 badger sstable 中 index、block 的数据布局.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303102234080.png)
+
+badgerDB sstable 文件的数据布局. 先排列 block 数据块, 接着排列 index 索引, 这里的索引为 bloomfilter 布隆过滤器, 后面开始排列 index 的 size, checksum 校验码, 最后为 checksum 校验码的 size.
 
 ```go
 // Finish finishes the table by appending the index.
@@ -515,9 +521,17 @@ Structure of Block.
 */
 ```
 
-对于 badger 的 table 和 block 编码、解码, 读写的具体操作流程及设计原理, 可直接看代码.
+值得一说的是, badger block 的设计跟 rocskdb 是有区别的, badger block 中的 block meta 里存放了 entryOffets uint32 数组, 该数组中的元素指向了每一个 entry. 当查询具体的 key 时, 通过 entryOffsets 数组做二分查找来定位 entry.
 
-代码位置: `badger/builder.go`
+另外 badger 的 block 中有设计前缀压缩. lsm tree 的 sstable 是 key 值有序的, 那么这一组的 key 会有一样的前缀字符. block entry 结构的首字段为 header, 这个 header 主要有连个字段 overlap 和 diff, overlap 为重叠的字节数, diff 为差异的字节数, block entry 列表都跟第一个 entry 做对比来构建这个 header. 第一个 block entry 的 overlap 为 0, diff 为完整 key 的长度.
+
+而 rocksdb 在 block 中设计了有前缀压缩功能的 restart points 启动点, 默认 16 个 entry 为一个启动点, 每个启动点保存了这一组 entry 的 key 完整信息, 后面的 entry 则跟对应的启动点计算前缀重叠的部分. rocksdb 的 restart points 不仅实现了压缩功能, 也实现了类似稀疏索引的二分查找. 通过 restart points 数组找到对应的启动点后, 尝试往后进行遍历查找数据, 直到找到或者下一个启动点为止.
+
+下图为 rocksdb sstable 和 block 的数据结构关联图.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303102319271.png)
+
+对于 badger 的 table、index、block 结构体的编码和解码, 读写的具体操作流程及设计原理, 可直接看代码, 篇幅原因不展开写了.
 
 ## 总结
 
