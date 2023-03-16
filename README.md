@@ -98,6 +98,8 @@
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_53.png" width="35%">
 
+- [如何分析查看 page cahce 内存中缓存了哪些文件 ( mmap + mincore )?](https://github.com/rfyiamcool/notes/blob/main/which_files_occupy_page_cache_memory.md.md)
+
 - [golang wal 预写日志的设计实现](https://github.com/rfyiamcool/notes/blob/main/golang_wal_code.md)
 
 - [基于 golang 的消息推送系统 gotify 的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/gotify_code.md)
