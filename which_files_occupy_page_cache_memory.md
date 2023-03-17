@@ -1,6 +1,10 @@
 # 如何分析查看 page cahce 内存中缓存了哪些文件 ( mmap + mincore )?
 
-众所周知, 在linux 下使用 `Buffered I/O` 读写文件是要经过 page cache ( 通常把 buffer cache 也算到 page cache 里). 那么大家肯定好奇, 如何查看系统的 page cache 中都缓存了哪些文件, 以及各个文件缓存了多少个 page 页, 那些 page 页被缓存 ?
+众所周知, 在linux 下使用 `Buffered I/O` 读写文件是要经过 page cache ( 通常把 buffer cache 也算到 page cache 里). 
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303171833934.png)
+
+那么大家肯定好奇, 如何查看系统的 page cache 中都缓存了哪些文件, 以及各个文件缓存了多少个 page 页, 那些 page 页被缓存 ?
 
 社区中 [pcstat](https://github.com/tobert/pcstat) 工具提供了查看 page cahce 缓存文件信息的方法, 该项目使用 golang 开发, 其最核心代码也就百行, 内部用到了两个系统调用来计算 page 页. mmap 用来映射文件到进程地址空间, mincore 用来判断文件有哪些 page 被 `page cache` 缓存了.
 
