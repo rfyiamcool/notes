@@ -1,6 +1,8 @@
 # 如何分析查看 page cahce 内存中缓存了哪些文件 ( mmap + mincore )?
 
-社区中 [pcstat](https://github.com/tobert/pcstat) 提供了查看 page cahce 的方法, 该项目使用 golang 开发, 其最核心代码也就百行, 内部用到了两个系统调用来计算 page 页. mmap 用来映射文件到进程地址空间, mincore 用来判断文件有哪些 page 被 `page cache` 缓存了.
+众所周知, 在linux 下使用 `Buffered I/O` 读写文件是要经过 page cache ( 通常把 buffer cache 也算到 page cache 里). 那么大家肯定好奇, 如何查看系统的 page cache 中都缓存了哪些文件, 以及各个文件缓存了多少个 page 页, 那些 page 页被缓存 ?
+
+社区中 [pcstat](https://github.com/tobert/pcstat) 工具提供了查看 page cahce 缓存文件信息的方法, 该项目使用 golang 开发, 其最核心代码也就百行, 内部用到了两个系统调用来计算 page 页. mmap 用来映射文件到进程地址空间, mincore 用来判断文件有哪些 page 被 `page cache` 缓存了.
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303121052113.png)
 
@@ -8,7 +10,7 @@
 
 本人参考了 pcstat 的设计, 开发了加强版的 page cache 分析工具 `pgcacher`, 相比 pcstat 来说做了很多调整, 调整了进程打开文件的目录, 还支持全局查询、排序输出、支持多线程并发检索、目录深度递归、忽略小 size 文件、指定和排除目录等等选项.
 
-pgcacher - 加强版 page cache 分析调试工具:
+`pgcacher` - 加强版 page cache 分析调试工具:
 
 [https://github.com/rfyiamcool/pgcacher](https://github.com/rfyiamcool/pgcacher)
 
