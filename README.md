@@ -84,6 +84,11 @@
 - [源码分析 golang badger wisckey kv存储分离的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_wisckey_kv.md)
 - [源码分析 golang badger parallel compaction 并行合并的实现原理](https://github.com/rfyiamcool/notes/blob/main/go_badger_compaction.md)
 
+### golang bitcask rosedb
+
+- [源码分析基于 bitcask 的 rosedb 存储引擎内数据结构设计实现 (一)](https://github.com/rfyiamcool/notes/blob/main/rosedb_bitcask_struct_1.md)
+- [源码分析基于 bitcask 的 rosedb 存储引擎内数据结构设计实现 (二)](https://github.com/rfyiamcool/notes/blob/main/rosedb_bitcask_struct_2.md)
+
 ### traefik
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_11.png" width="15%">
