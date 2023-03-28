@@ -34,13 +34,13 @@ type valuePos struct {
 
 一直进行写操作，当 logfile 的存储空间大于阈值时，则会生成新的 logfile 文件，而老的 logfile 被标记为归档文件，所以 bitcask 模型的存储引擎，活跃的 logfile 只有一个，而归档的 logfile 有多个。
 
-### 读取
+## 读取
 
 在读取数据时，先从索引里查找 key 对应的 valuePos，如找不到 key，说明 key 不存在。然后根据 valuePos 的 fid 找到对应的 logfile 日志对象，再根据 valuePos 的 偏移量 offset 和数据大小 size 读出数据。
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303281101184.png)
 
-### 更新和删除
+## 更新和删除
 
 bitcask 下的更新和删除数据操作有些不同，删除操作则是在 logfile 里写入一个带 delete 标记的数据，接着删除索引即可，而更新操作跟插入操作是一样的，追加写数据，然后更新索引，让索引指向最新的 valuePos 位置上。
 
@@ -52,7 +52,7 @@ bitcask 下的更新和删除数据操作有些不同，删除操作则是在 lo
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303281131849.png)
 
-### 如何 GC 垃圾回收 ?
+## 如何 GC 垃圾回收 ?
 
 使用 bitcask 模型实现的 kv 存储引擎不会直接原理删除数据，而是通过 compaction gc 合并垃圾回收的方式来释放空间。 社区基于 bitcask 的 rosedb 和 nutsdb 当然也这么设计的。
 
@@ -60,7 +60,7 @@ bitcask 下的更新和删除数据操作有些不同，删除操作则是在 lo
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303271049445.png)
 
-### bitcask 存储模型不适合数据多的场景 ?
+## bitcask 存储模型不适合数据多的场景 ?
 
 为什么说 bitcask 模型不适合大存储模型 ? 就是因为其需要在内存里构建全量的索引，当数据特别多的时候，单单索引的开销也很大，还有启动时需要扫描所有的 logfile 文件内的数据来构建索引。当使用 sata 这类机械盘做存储时，假设 Disk磁盘吞吐在 200MB 左右，那么读取 20GB 的 DB 数据少说需要 100 秒。如果 DB 文件在 100GB，差不多需要近 10 分钟加载时间。
 
@@ -138,7 +138,7 @@ func (db *RoseDB) loadIndexFromLogFiles() error {
 }
 ```
 
-### 如何在 KV 基础上构建 redis 数据结构 ?
+## 如何在 KV 基础上构建 redis 数据结构 ?
 
 riak bitcask 论文只是 kv 存储引擎的实现，没有提到其他数据结构的实现。rosedb 和 nutsdb 都实现了 redis 常用的那几个数据结构，如 string、list、set、hash、zset。
 
@@ -166,16 +166,28 @@ rosedb 里 zset 有序集合结构的设计
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303261440820.png)
 
-### bitcask 的性能如何 ?
+## bitcask 的性能如何 ?
 
-#### 对比查询的性能
+### 对比查询的性能
 
-如果是点查的话，bitcask 要比 lsm-tree 这类的存储引擎性能要高的，但范围查询要比 lsm-tree 存储引擎差一些，原因是 bitcask logfile 日志文件内部没有对 kv 排序，logfile 文件之间也无排序，有序是依赖在内存里构建索引来实现的。当进行范围查询时，通过 bitcask 有序索引找到 key 对应的 valuePos，再依次到文件中读取。这些 value 在各个 logfile 文件中，查询时会使用大量的随机 IO。
+如果是点查的话，bitcask 要比 lsm-tree 这类的存储引擎性能要高的，因为 bitcask 的索引中有全量数据索引，通过 key 找到 valuePos，再通过 valuesPos 直接到 logfile 读取相关数据即可。而 lsmtree 则需要先到 活跃 memtable 查找，再到不可变 immutable table 集合里查找，继续尝试在 L0 层里所有符合 key 范围内的 SSTable 里查找，再到 L1，L2, LevelN...，直到找到数据。
 
-#### 对比写入性能
+但范围查询要比 lsm-tree 存储引擎差一些，原因是 bitcask logfile 日志文件内部没有对 kv 排序，logfile 文件之间也无排序，有序是依赖在内存里构建索引来实现的。当进行范围查询时，通过 bitcask 有序索引找到 key 对应的 valuePos，再依次到文件中读取。这些 value 在各个 logfile 文件中，查询时会使用大量的随机 IO。
+
+### 对比写入性能
 
 bitcask 跟 lsm-tree 存储引擎差不多。bitcask 直接写到 logfile 里，然后把 valuePos 更新到索引中。而像 rocksdb 和 badger 是先把数据写到 memtable 对应的 wal 文件中，然后在 memtable 的跳表 skiplist 中添加 node 索引节点，该 node 的 value 指向到 wal 的 offset 和 size。
 
-#### 对比合并性能
+### 对比合并性能
 
 bitcask 的 compaction gc 合并和垃圾回收的过程相对比较简单，rocksdb 和 badger 实现了并发合并，先选定 level，则选定 sstable，可按照 keyrange 划分 sstable 范围来实现并发合并。bitcask 的合并垃圾回收虽然简单，但足矣满足 bitcask 的需求。
+
+## rosedb 是否会数据 ?
+
+首先需要知道所有存储引擎都有类似 sync 同步写选项的，当然名字可能不同，redis 为 `appendfsync` 策略，mysql 为 `innodb_flush_log_at_trx_commit` 参数。在开启该选项后，每次写完数据都要主动发起 sync 调用，同步写会影响性能。对数据安全性要求高的，需要开启同步写。对于性能高的可以关闭同步写策略，采用定时刷盘，或者干脆不主动刷盘，而只依赖内核线程 `pdflush` 去管理 page cache 的刷盘，通常满足 deadline 和脏页率会发起刷盘。
+
+社区中 rosedb、nutsdb、badgerDB、leveldb、rocksdb 等主流的引擎默认都关闭了同步写操作，毕竟同步写确实影响性能。普通 sata3 磁盘的 io latency 时延在 2ms 左右，那么在不使用批量写的条件写，每秒也就大约可以写 500 条的数据。nvme ssd 固态硬盘的 io lantency 时延到 100us 左右，每秒理论可以写 10000 条数据，当然这里不能超过 IO 吞吐带宽。
+
+rosedb 是怎么写的 ? 先把数据写到 logfile 里，其实是写到 page cahce 里，相关的 page 被标记成脏页，还被 buffer cache 关联。判断是否开启 sync 选项，如开启则调用 sync 同步刷盘。如何在不开启 sync 的情况下服务挂了，数据还在 page cache ( buffer cache ) 中，不丢数据的。当然如果服务器直接掉电，那么没来得及刷盘的 page，必然是丢了。其实 sync 刷盘完毕，也不能保证数据安全。因为大多数磁盘内部也是有读写缓存的，当服务器掉电后，sata 盘虽然带电，但不足以支撑把缓存里的数据写完。而 ssd 的带电通常是可以把缓存里的数据写完。当然，为了保证 sync 的安全性，你也可以用把磁盘内部的高速缓存关闭。
+
+另外，compaction gc 时不会丢失数据。比如把一个的 logfile 合并清理掉，合并的过程中服务挂了，那么新老 logfile 都存在，按照 bitcask 的恢复设计会按照从老到新的顺序恢复 logfile，可以完整的恢复数据。
