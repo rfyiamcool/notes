@@ -182,7 +182,7 @@ bitcask 跟 lsm-tree 存储引擎差不多。bitcask 直接写到 logfile 里，
 
 bitcask 的 compaction gc 合并和垃圾回收的过程相对比较简单，rocksdb 和 badger 实现了并发合并，先选定 level，则选定 sstable，可按照 keyrange 划分 sstable 范围来实现并发合并。bitcask 的合并垃圾回收虽然简单，但足矣满足 bitcask 的需求。
 
-## rosedb 是否会数据 ?
+## rosedb 什么场景会丢失数据 ?
 
 首先需要知道所有存储引擎都有类似 sync 同步写选项的，当然名字可能不同，redis 为 `appendfsync` 策略，mysql 为 `innodb_flush_log_at_trx_commit` 参数。在开启该选项后，每次写完数据都要主动发起 sync 调用，同步写会影响性能。对数据安全性要求高的，需要开启同步写。对于性能高的可以关闭同步写策略，采用定时刷盘，或者干脆不主动刷盘，而只依赖内核线程 `pdflush` 去管理 page cache 的刷盘，通常满足 deadline 和脏页率会发起刷盘。
 
