@@ -6,6 +6,10 @@ golang 社区里使用 bitcask 模型设计的 kv 存储有不少，比较突出
 
 本篇主要分析 rosedb 的 string 和 list 数据结构的实现原理，还有 bitcask 存储模型里索引和文件的映射关系。
 
+**golang bitcask rosedb 存储引擎实现原理系列的文章地址 (更新中)**
+
+[https://github.com/rfyiamcool/notes#golang-bitcask-rosedb](https://github.com/rfyiamcool/notes#golang-bitcask-rosedb)
+
 ## string 结构的实现及读写处理流程
 
 这里的 string 跟 redis string 是一样的，就是最简单的 kv 用法，`Set` 是写入 kv，`Get` 为读取 kv，`Delete` 为删除 kv。 当然 rosedb 也实现了 redis string 结构里大部分的命令。

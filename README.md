@@ -86,11 +86,11 @@
 
 ### golang bitcask rosedb
 
+- [源码分析基于 bitcask 的 rosedb KV 存储引擎的设计实现](https://github.com/rfyiamcool/notes/blob/main/rosedb_bitcask_summary.md)
 - [源码分析基于 bitcask 的 rosedb 存储引擎内数据结构设计实现 (一)](https://github.com/rfyiamcool/notes/blob/main/rosedb_bitcask_struct_1.md)
 - [源码分析基于 bitcask 的 rosedb 存储引擎内数据结构设计实现 (二)](https://github.com/rfyiamcool/notes/blob/main/rosedb_bitcask_struct_2.md)
 - [源码分析基于 bitcask 的 rosedb 存储引擎 Compaction GC 合并垃圾回收的实现](https://github.com/rfyiamcool/notes/blob/main/rosedb_bitcask_compaction_gc.md)
 - [源码分析基于 bitcask 的 rosedb 存储引擎初始化和关闭的实现](https://github.com/rfyiamcool/notes/blob/main/rosedb_bitcask_open_close.md)
-- [源码分析基于 bitcask 的 rosedb KV 存储引擎的设计实现](https://github.com/rfyiamcool/notes/blob/main/rosedb_bitcask_summary.md)
 
 ### traefik
 

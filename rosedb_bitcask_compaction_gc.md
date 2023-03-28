@@ -8,6 +8,10 @@ rosedb 在删除数据时，先在 logfile 日志里写一条带 delete 标记�
 
 > 其实基于 lsm tree 的存储引擎，则是通过 compaction 合并来整理存储空间。而基于 B+Tree 实现的存储引擎，通过释放和申请 page 页的方式排列数据，所以不需要 compaction 合并操作。
 
+**golang bitcask rosedb 存储引擎实现原理系列的文章地址 (更新中)**
+
+[https://github.com/rfyiamcool/notes#golang-bitcask-rosedb](https://github.com/rfyiamcool/notes#golang-bitcask-rosedb)
+
 ## rosedb 的垃圾回收入口
 
 rosedb 会周期性地触发垃圾回收，默认为 8 个小时。其内部会为每个 datatype 类型都启动一个 GC 垃圾回收线程。每个 gc 垃圾回收线程只会对绑定的 datatype 处理。由于 rosedb 里不同的 dataType 类型有不同的 active logfile 和 archive logfile 集合，所以可按照 dataType 粒度进行并行垃圾回收，dataType 内部没有采用并发操作，而是对满足阈值 logfile 文件一个个来处理。

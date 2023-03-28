@@ -2,6 +2,10 @@
 
 上篇主要介绍了 rosedb 的 string 和 list 数据结构在 bitcask 存储模型下的实现原理。本文讲解 hash、set、zset (sorted set) 的实现原理。
 
+**golang bitcask rosedb 存储引擎实现原理系列的文章地址 (更新中)**
+
+[https://github.com/rfyiamcool/notes#golang-bitcask-rosedb](https://github.com/rfyiamcool/notes#golang-bitcask-rosedb)
+
 ## hash 结构的处理流程
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303261437133.png)
