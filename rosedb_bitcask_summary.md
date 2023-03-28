@@ -8,6 +8,10 @@ golang 社区中基于 bitcask 存储模型实现的 kv 引擎有 rosedb 和 nut
 
 本文主要以 rosedb 项目代码为主，分析 bitcask 存储模型在工程上的实现，如何在简单的 KV 模型上构建复杂的兼容 redis 的数据结构。
 
+**golang bitcask rosedb 存储引擎实现原理系列的文章地址 (更新中)**
+
+[https://github.com/rfyiamcool/notes#golang-bitcask-rosedb](https://github.com/rfyiamcool/notes#golang-bitcask-rosedb)
+
 ## bitcask 存储设计
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303272218890.png)

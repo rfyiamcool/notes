@@ -1,5 +1,9 @@
 # 源码分析基于 bitcask 的 rosedb 存储引擎的初始化和关闭的实现
 
+**golang bitcask rosedb 存储引擎实现原理系列的文章地址 (更新中)**
+
+[https://github.com/rfyiamcool/notes#golang-bitcask-rosedb](https://github.com/rfyiamcool/notes#golang-bitcask-rosedb)
+
 ## rosedb 启动实现
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303271608653.png)
