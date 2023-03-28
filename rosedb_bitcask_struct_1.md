@@ -676,7 +676,7 @@ func (db *RoseDB) LRange(key []byte, start, end int) (values [][]byte, err error
 }
 ```
 
-### 总结
+## 总结
 
 通过分析 rosedb 源码中 string 和 list 结构的实现原理, 可以发现 rosedb 中一些巧妙的设计.
 
@@ -684,3 +684,13 @@ func (db *RoseDB) LRange(key []byte, start, end int) (values [][]byte, err error
 2. 不同的数据类型都有自己的索引。 string 类型是共用一个 radixTree 索引，而 list 列表结构有些差异，每个 list key 都有一个独立的 radeixTree 索引 ;
 3. 所有的写操作都是构建一个 entry 写到活跃的 logfile 里，删除操作则多带一个 delete 删除标记，然后也 entry 写到 logfile 日志文件里 ;
 4. 内存的索引是通过 `radixTree` 基数树来构建的，index node 只保存 key 和 valuePos，valuePos 记录了 value 在磁盘中的位置，主要记录了文件id和偏移量。
+
+**下面是 rosedb 里 string 和 list 结构的布局**
+
+rosedb 里 string 结构的设计
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303261434658.png)
+
+rosedb 里 list 列表结构的设计
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303261434658.png)
