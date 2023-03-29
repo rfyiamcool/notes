@@ -66,9 +66,11 @@ bitcask 下的更新和删除数据操作有些不同，删除操作则是在 lo
 
 为了提高启动阶段的初始化速度，riak bitcask 论文里有提到使用 `.hint` 文件存储 key 和 valuePos 的索引，也就是为每个 logfile 分配一个 .hint 索引文件，该索引文件内只存储 key 和 valuePos 数据。数据库启动时只需要读取 .hint 文件即可。当然每次写数据时，除了去写 logfile 外，还需要把索引信息写到 .hint 文件。
 
-当然也可以在内存里维护当前 active logfile 的索引信息，当 active logfile 超过阈值被切到不可变的归档 logfile 时，顺便把对应的索引数据落到 `.hint` 文件里。归档的 logfile 是有 `.hint`，活跃的 logfile 没有 .hint 文件，那么就直接扫 logfile 构建索引。
+当然也可以在内存里再多一个维护当前 active logfile 的索引信息，索引为 key 和 valuePos。当 active logfile 超过阈值被切到不可变的归档 logfile 时，顺便把该 logfile 对应的索引数据落到 `.hint` 文件里。这样下来，归档的 logfile 自然是有 `.hint`，活跃的 logfile 没有 .hint 文件，那么启动恢复时直接读 logfile 构建索引。当然也可以在归档时，遍历读尽数据的header，然后写到 .hint 文件，由于刚归档的 logfile 大概率也在 page cache 中，还有 logfile 文件也不大，不会造成太多的 disk io。
 
-下面是 rosedb 遍历读取 logfile，并构建索引的过程，rosedb 没有设计 .hint 索引，猜想是因为 bitcask 实际场景有关。
+rosedb 和 nutsdb 都没有设计 .hint 索引，猜想是跟 bitcask 实际应用场景有关，作为单机存储引擎不会有太多的数据，硬扫也还可以接受。像 k8s 依赖的中间件 etcd 在使用 boltdb 时，key 为 revison ，value 为 kv 键值，所以需要启动时把 boltdb 读完读尽才可构建 treeindex 索引。😅
+
+下面是 rosedb 遍历读取 logfile，并构建索引的过程。
 
 ```go
 func (db *RoseDB) loadIndexFromLogFiles() error {
