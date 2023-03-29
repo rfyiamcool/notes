@@ -697,4 +697,4 @@ rosedb 里 string 结构的设计
 
 rosedb 里 list 列表结构的设计
 
-![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303261434658.png)
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303261435185.png)
