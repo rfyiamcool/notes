@@ -186,8 +186,26 @@ bitcask 的 compaction gc 合并和垃圾回收的过程相对比较简单，roc
 
 首先需要知道所有存储引擎都有类似 sync 同步写选项的，当然名字可能不同，redis 为 `appendfsync` 策略，mysql 为 `innodb_flush_log_at_trx_commit` 参数。在开启该选项后，每次写完数据都要主动发起 sync 调用，同步写会影响性能。对数据安全性要求高的，需要开启同步写。对于性能高的可以关闭同步写策略，采用定时刷盘，或者干脆不主动刷盘，而只依赖内核线程 `pdflush` 去管理 page cache 的刷盘，通常满足 deadline 和脏页率会发起刷盘。
 
-社区中 rosedb、nutsdb、badgerDB、leveldb、rocksdb 等主流的引擎默认都关闭了同步写操作，毕竟同步写确实影响性能。普通 sata3 磁盘的 io latency 时延在 2ms 左右，那么在不使用批量写的条件写，每秒也就大约可以写 500 条的数据。nvme ssd 固态硬盘的 io lantency 时延到 100us 左右，每秒理论可以写 10000 条数据，当然这里不能超过 IO 吞吐带宽。
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303291121018.png)
 
-rosedb 是怎么写的 ? 先把数据写到 logfile 里，其实是写到 page cahce 里，相关的 page 被标记成脏页，还被 buffer cache 关联。判断是否开启 sync 选项，如开启则调用 sync 同步刷盘。如何在不开启 sync 的情况下服务挂了，数据还在 page cache ( buffer cache ) 中，不丢数据的。当然如果服务器直接掉电，那么没来得及刷盘的 page，必然是丢了。其实 sync 刷盘完毕，也不能保证数据安全。因为大多数磁盘内部也是有读写缓存的，当服务器掉电后，sata 盘虽然带电，但不足以支撑把缓存里的数据写完。而 ssd 的带电通常是可以把缓存里的数据写完。当然，为了保证 sync 的安全性，你也可以用把磁盘内部的高速缓存关闭。
+社区中 rosedb、nutsdb、badgerDB、leveldb、rocksdb 等主流的引擎默认都关闭了同步写操作，毕竟同步写确实影响性能。普通 sata3 磁盘的 io latency 时延在 5ms 左右，那么在不使用批量写的条件写，每秒写的上线可以到 200 条的数据。nvme ssd 企业固态硬盘的 io lantency 时延可以低到 `< 100us` 左右，每秒理论可以写 10000 条数据，当然这里不能超过 IO 吞吐带宽。
 
-另外，compaction gc 时不会丢失数据。比如把一个的 logfile 合并清理掉，合并的过程中服务挂了，那么新老 logfile 都存在，按照 bitcask 的恢复设计会按照从老到新的顺序恢复 logfile，可以完整的恢复数据。
+**分析下 rosedb 数据写入的详细流程 ?**
+
+把传入的 kv 键值编码字节数组，之后把数据先写到 logfile 里，这里其实是先写到 page cahce 里，相关的 page 页被标记成脏页，还加入到 buffer cache 链表。
+
+判断是否开启 sync 选项，如开启则调用 sync 同步刷盘。如何在不开启 sync 的情况下服务挂了，数据还在 page cache ( buffer cache ) 中，不丢数据的。当然如果服务器直接掉电，那么没来得及刷盘的 page，必然是丢了。其实 sync 刷盘完毕，也不能保证数据安全。因为大多数磁盘内部也是有读写缓存的，当服务器断电掉电后，sata 盘虽然带电，但有概率支撑不到把缓存里的数据写完，企业的 sata 盘缓存可以做到 256 MB。而 ssd 也是带有掉电保护机制，在异常掉电下可以把缓存里的数据写完，其原理就是在 ssd 上加入电容，再检测到掉电后主动把 DRAM 缓存里数据刷到 Nand 闪存里。
+
+当然，为了保证 sync 的安全性，你也可以用把磁盘内部的高速缓存关闭。服务器掉电的概率其实很低的。
+
+下图为 wd 企业盘的缓存容量.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303291014655.png)
+
+下图为 ssd 断电保护电容.
+
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202303/202303291039185.png)
+
+**compaction gc 合并及垃圾回收过程中是否丢失数据?**
+
+compaction gc 过程崩溃不会丢失数据。比如把一个的 logfile 合并清理掉，合并的过程中服务挂了，那么新老 logfile 都存在，按照 bitcask 的恢复设计会按照从老到新的顺序恢复 logfile，可以完整的恢复数据。
