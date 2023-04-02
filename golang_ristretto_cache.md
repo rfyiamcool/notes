@@ -127,9 +127,21 @@ func KeyToHash(key interface{}) (uint64, uint64) {
 
 社区中常常使用 LRU 和 LFU 算法来实现缓存淘汰驱逐，ristretto 则使用 LFU 算法，但由于 LFU 标准实现开销过大，则使用 TinyLFU 实现数据淘汰。
 
-TinyLFU 里主要使用 `count-min sketch` 算法来记录各个 key 的缓存命中率，该 `count-min Sketch` 算法是用来概率计数的算法，在数据基数非常大时，通过牺牲准确性节省存储空间。
+TinyLFU 里主要使用 `count-min sketch` 统计算法粗略记录各个 key 的缓存命中计数。该 `count-min Sketch` 算法通常用在不要求精确计数，又想节省内存的场景，虽然拿到的计数缺失一定的精准度，但确实节省了内存。
+
+但就 ristretto 缓存场景来说，记录 100w 个 key 的计数也才占用 11MB 左右，公式是 ( 100 * 10000 ) * (8 + 4) / 1024/ 1024 = 11MB，这里的 8 为 key hash 的大小，而 4 为 hit 的类型 uint32 大小。
+
+#### count-min sketch 统计算法实现
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202304/202304012218253.png)
+
+count-min sketch 中的 increment 和 estimate 方法实现原理很简单，流程如下。
+
+1. 选定 d 个 hash 函数，开一个 dm 的二维整数数组作为哈希表 ;
+2. 对于每个元素，分别使用d个hash函数计算相应的哈希值，并对m取余，然后在对应的位置上增1，二维数组中的每个整数称为sketch ;
+3. 要查询某个元素的频率时，只需要取出d个sketch, 返回最小的那一个。
+
+ristretto 对 count-min sketch 并不是一直累计累加的，在 policy 累计对象超过 resetAt 时，则会对 cm-sketch 统计对象进行重置。不然一直递增，缓存淘汰场景下，对于新对象很不友好。
 
 #### policy 数据结构的设计
 
