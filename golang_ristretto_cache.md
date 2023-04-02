@@ -394,6 +394,8 @@ func (m *lockedMap) Update(newItem *Item) (interface{}, bool) {
 
 #### ProcessItems
 
+![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202304/202304021502914.png)
+
 `ristretto` 实例化的时候会开启一个协程运行 `processItems`，`processItems` 方法可以处理 item 的增删改，还可以周期性进行 GC 垃圾回收。
 
 ```go
