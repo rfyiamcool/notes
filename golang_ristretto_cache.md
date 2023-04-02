@@ -213,6 +213,10 @@ func (p *tinyLFU) Increment(key uint64) {
 
 #### 写时缓存淘汰驱逐
 
+`ristretto` 没有实现后台协程主动淘汰驱逐的逻辑，而是采用了写时淘汰驱逐，每次写数据时，判断是否有足够的 cost 插入数据。如果不足，则进行驱逐。采样驱逐的方法有点类似 redis 的方案，每次从 simpleLFU 里获取 5 个 key，然后遍历计算这 5 个 key 的命中率，淘汰掉命中率最低的 key，然后再判断是否有空闲 cost 写入，不足继续采样淘汰，知道满足当前 key 的写入。
+
+命中率是通过 tinyLFU 来计算的，由于该实现是通过 count-min sketch 算法实现，所以计算出的缓存命中数会产生些偏差。
+
 ```go
 func (p *defaultPolicy) Add(key uint64, cost int64) ([]*Item, bool) {
 	p.Lock()
