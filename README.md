@@ -1,6 +1,6 @@
 # note
 
-[更多文章在 xiaorui.cc](https://xiaorui.cc)
+## [更多文章在 xiaorui.cc](https://xiaorui.cc)
 
 ## 文章列表
 
