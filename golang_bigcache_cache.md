@@ -473,6 +473,10 @@ func (s *cacheShard) del(hashedKey uint64) error {
 
 ## GC 垃圾回收的设计
 
+bigcache 的 gc 垃圾回收是指淘汰清理过期数据，其实现很简单，从头到尾遍历数据，看到过期就淘汰，不过期就中断 gc 任务。
+
+需要注意的是 bigcache 的过期时间为固定的，不像 redis、ristretto 可随意配置不同的过期时间。bigcache 是按照 fifo 先进先出来存储的，所以先入 ringbuffer 的对象必然要比后进来的先淘汰。
+
 `bigcache` 实例化 cache 对象时，会启动一个协程来进行垃圾回收。每隔一段时间进行一次垃圾回收，默认时长为 1 秒。
 
 ```go
@@ -571,3 +575,7 @@ func (s *cacheShard) isExpired(oldestEntry []byte, currentTimestamp uint64) bool
 其一 bigcache 不支持 lru / lfu 这类缓存淘汰算法，而使用 fifo 淘汰旧数据，这样势必影响缓存命中率和缓存效果。
 
 其二 bigcache 不能支持除了 `[]byte` 以外的数据结构，毕竟业务上的对象多为自定义 `struct`。大家存取时不能每次都进行 encode、decode 编解码吧？毕竟使用社区中有一堆黑科技的 sonic json 库，序列化小对象也至少几十个 us，反序列化更是序列化的两倍。
+
+个人更推荐使用 `ristretto` 构建业务的进程内缓存，其实现原理文章如下。
+
+[golang ristretto 高性能缓存的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_ristretto_cache.md)
