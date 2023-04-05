@@ -1,4 +1,4 @@
-# 源码分析 bigcache 高性能无 GC 开销的缓存设计实现
+# 源码分析 golang bigcache 高性能无 GC 开销的缓存设计实现
 
 `bigcache` 是 golang 编写的高性能的缓存库，其设计很巧妙，通过数据分片解决高并发下锁竞争的问题，通过把数据存到 ringbuffer 来规避 golang gc 的开销。
 
@@ -6,7 +6,7 @@ bigcache 内部使用分片来存储数据，每个分片内又使用 hashmap �
 
 由于 bigcache 里数据是存在 `[]byte` 类型的 ringbuffer 里，所以传入的 value 只能 `[]byte`，不能存储其他类型。这样应用场景很是受限，毕竟业务上缓存的对象较为复杂，如果每次存取都需要序列化和反序列化，那么在一定量级下 CPU 开销会很可观。
 
-> bigcache 的实现原理跟 freecache、fastcache 大同小异，都使用了 ringbuffer 存放数据，可以很大程度降低 GC 的开销。
+> bigcache 的实现原理跟 freecache、fastcache 大同小异，都使用了 ringbuffer 存放数据，可以很大程度降低 GC 的开销。这里的 ringbuffer 当然可以使用有名或匿名的 mmap 来构建，俗称堆外内存，但对于 golang gc 来说，mmap 和直接申请 `[]byte` 的 gc 开销没大区别。如果使用文件 mmap 映射，当系统一直有文件读写，势必会对 page cache 进行 page 淘汰，这样基于 mmap 构建的 ringbuffer，必然会受之影响。
 
 ## bigcache 高级用法
 
