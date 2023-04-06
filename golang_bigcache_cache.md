@@ -58,6 +58,8 @@ func main() {
 
 ## bigcache 实现原理
 
+这里简述下 bigcache 读写数据实现原理，写操作是把数据写到 ringbuffer 里，然后在 hashmap 里记录 key 和 ringbuffer 索引的关系，读取的时候，自然是从 hashmap 里获取 key 的 ringbuffer index 索引值，然后从 ringbuffer 获取数据。
+
 ### bigcache 中数据结构及布局
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202304/202304051153942.png)
