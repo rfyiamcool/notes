@@ -1,4 +1,4 @@
-# 源码分析 hashicorp go-memdb 存储引擎的事务及索引机制的设计实现原理
+# 源码分析 hashicorp go-memdb 存储的事务及索引的设计实现原理
 
 hashicorp 的 `go-memdb` 是一个功能丰富且强大的内存型 KV 数据库，支持数据的读写和迭代，还支持 MVCC 多版本、事务、多样索引(单索引和联合索引)、watch 监听等等。 go-memdb 使用 radix tree 来存储数据对象和索引结构，由于 radixtree 是有序的，所以 go-memdb 支持迭代。
 
@@ -18,7 +18,7 @@ go-memdb 的索引是个很实用的功能，可以对一个 struct 结构建立
 
 ## go-memdb 使用方法
 
-下面为 hashicorp `go-memdb` 的用法.
+下面为 hashicorp `go-memdb` 的用法，起流程是先创建 dbschema，再使用定义的 dbschema 构建 memdb，后面就可以开事务进行增删改查操作了。
 
 ```go
 type Person struct {
@@ -115,6 +115,8 @@ for obj := it.Next(); obj != nil; obj = it.Next() {
 ```
 
 ## hashicorp go-memdb 源码分析
+
+hashicorp 的数据及索引是使用 radixtree 来实现的。
 
 ### memdb 的初始化
 
@@ -649,6 +651,8 @@ go-memdb 的事务是乐观事务，只有在提交时才真正的写，事务�
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202304/202304101532950.png)
 
 `go-memdb` 的写操作是对 radixtree 进行 copy on write 操作，写数据时从 root 里获取 radix tree 快照对象，然后在新的快照对象上修改，其实就是构建一条新的 node 关系，然后替换 root 根。如下图所示，当新增和修改绿色 node 时，需要把 node 往上直到 root 那一串的 node 复制出来，然后修改 node 之间的关系，最后更新进去。
+
+熟悉 boltdb 源码的朋友会发现，hashicorp immutable radixtree 跟 boltdb b+tree 的设计很像，数据的写操作不是在原地更新 `in place`，也是使用 cow 的机制，就是说每次更新使用新的 root page 关联。
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202304/202304101555832.png)
 
