@@ -86,6 +86,8 @@
 
 ### golang bitcask rosedb
 
+<img src="https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202304/202304142127537.png" width="35%">
+
 - [源码分析基于 bitcask 的 rosedb KV 存储引擎的设计实现](https://github.com/rfyiamcool/notes/blob/main/rosedb_bitcask_summary.md)
 - [源码分析基于 bitcask 的 rosedb 存储引擎内数据结构设计实现 (一)](https://github.com/rfyiamcool/notes/blob/main/rosedb_bitcask_struct_1.md)
 - [源码分析基于 bitcask 的 rosedb 存储引擎内数据结构设计实现 (二)](https://github.com/rfyiamcool/notes/blob/main/rosedb_bitcask_struct_2.md)
