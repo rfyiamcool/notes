@@ -1,12 +1,12 @@
-# golang lockfree queue 高性能无锁队列的设计实现 ( disruptor 版)
+# golang disruptor lockfree 高性能无锁队列的设计实现原理
 
-腾讯的老哥分享了一个 golang lockfree 的库，本人看到该库的设计很有意思，就参与该项目的开发改进，算是该项目的 contributor 了.
+腾讯的老哥在社区中开源了 golang lockfree 的库，本人看到该库的设计很有意思，就参与该项目的开发改进，已经是该项目的 contributor 了. 该库使用 golang 开发，相比社区中其他 golang lockfree 来说，api 更友好，性能更好，其提供了各种的休眠阻塞策略，避免过度的 spin 引发 cpu 开销升高。
 
-[https://github.com/bruceshao/lockfree](https://github.com/bruceshao/lockfree)
+项目地址: [https://github.com/bruceshao/lockfree](https://github.com/bruceshao/lockfree)
 
 ![](https://xiaorui-cc.oss-cn-hangzhou.aliyuncs.com/images/202304/202304181309777.png)
 
-lockfree queue 的基本原理还是好理解的，设计上借鉴参考了无锁队列的标杆 java disruptor，很多性能的优化点也是参照了 disruptor。
+lockfree queue 的基本原理还是好理解的，设计上借鉴参考了无锁队列的标杆 java disruptor，另外在代码中很多性能的优化点也是参照了 java disruptor。
 
 lockfree queue 无锁的设计大概流程是这样，首先需要一个原子递增的发号器。生产者写数据时，先拿到一个 seq 序号，通过位运算找到 ringbuffer 的位置，如何 ringbuffer 还有空余空间，只需写到 ringbuffer 对应位置即可，如果空间已满，则需要等待。而读取数据只需判断对应结构的 seq 跟 consumer seq 是否一致即可。
 

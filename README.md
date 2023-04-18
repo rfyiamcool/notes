@@ -113,6 +113,8 @@
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_53.png" width="35%">
 
+- [golang disruptor lockfree queue 高性能无锁队列的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_lockfree_disruptor.md)
+
 - [源码分析 hashicorp go-memdb 存储的事务及索引的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/go-memdb.md)
 
 - [如何分析查看 page cahce 内存中缓存了哪些文件 ( mmap + mincore )?](https://github.com/rfyiamcool/notes/blob/main/which_files_occupy_page_cache_memory.md)
