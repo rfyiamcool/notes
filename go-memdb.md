@@ -352,6 +352,14 @@ func (i *IntFieldIndex) FromObject(obj interface{}) (bool, []byte, error) {
 }
 ```
 
+go-memdb 的其他索引的实现就不说了，大同小异，具体实现原理直接看代码即可。
+
+**🚀 🚀 🚀  索引的小结:**
+
+go-memdb 里一个 table 的每个 index 都跟 obj 对象绑定，比如这里有个结构体 `struct {id,a,b,c string}`，这四个字段都建立的索引，插入该对象时，需要这四个字段分别跟这个对象建立索引。这里的设计跟 mysql 不一样，像 mysql 是分主键索引和辅助索引的，主键索引的 key 为唯一 id，而辅助索引 key 为索引值，value 为 主键的 id。
+
+go-memdb 也有主键索引的概念，但跟 mysql 不是一个概念. 在写数据时，先尝试从该 table 的 id 索引里获取旧数据对象，然后遍历该 table schema 的索引配置集合，先使用旧数据的值，再添加新值进去。读数据时，找到 table 对象的索引对象，通过值直接获取 obj 对象。
+
 ### 创建事务 txn
 
 创建事务，当 write 为 true 时，则需要加锁。只读事务则不需要锁。go-memdb 里写写事务之间是阻塞的，读读事务之间可并发，读和写事务之间也可并发，但要同一时间只能有一个写事务。
