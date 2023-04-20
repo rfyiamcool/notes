@@ -345,6 +345,10 @@ func (q *Producer[T]) write(v T, dur time.Duration) error {
 }
 ```
 
+😁 关于 lockfree write 写失败 spin 引发的 cpu 过高问题，已经给作者提价 pull request (pr)，但作者还没给合并，说要考虑用户的选择再考虑下。我表示不理解。
+
+[https://github.com/bruceshao/lockfree/pull/15](https://github.com/bruceshao/lockfree/pull/15)
+
 ### consumer 消费者
 
 #### 初始化 consumer
