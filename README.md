@@ -157,6 +157,8 @@
 
 - [源码分析 golang grpc graceful shutdown 优雅退出](https://github.com/rfyiamcool/notes/blob/main/grpc_grace_shutdown.md)
 
+- [golang deadlock 死锁检测的实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_deadlock_atuo_detect.md)
+
 - [golang在mac m1下的性能表现](https://github.com/rfyiamcool/notes/blob/main/mac_m1_golang_benchmark.md)
 
 - [istio envoy 的性能测试](https://github.com/rfyiamcool/notes/blob/main/istio_sidecar_performance.md)
