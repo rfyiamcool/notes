@@ -153,6 +153,8 @@
 
 - [golang net/http超时引发大量fin-wait2](https://github.com/rfyiamcool/notes/blob/main/go_http_client_fin_wait2.md)
 
+- [源码分析 golang grpc graceful shutdown 优雅退出](https://github.com/rfyiamcool/notes/blob/main/grpc_grace_shutdown.md)
+
 - [golang在mac m1下的性能表现](https://github.com/rfyiamcool/notes/blob/main/mac_m1_golang_benchmark.md)
 
 - [istio envoy 的性能测试](https://github.com/rfyiamcool/notes/blob/main/istio_sidecar_performance.md)
