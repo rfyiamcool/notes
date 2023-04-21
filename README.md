@@ -135,13 +135,9 @@
 
 - [高并发服务遇redis瓶颈引发time-wait事故](https://github.com/rfyiamcool/notes/blob/main/optimize_golang_time_wait.md)
 
-- [为 golang GRPC 配置 SAN 证书](https://github.com/rfyiamcool/notes/blob/main/create_san_tls.md)
-
 - [git规范的必要性](https://github.com/rfyiamcool/notes/blob/main/git.md)
 
 - [golang redis pipeline管道引发乱序串读](https://github.com/rfyiamcool/notes/blob/main/golang_redis_pipeline_bug.md)
-
-- [istio envoy 的性能测试](https://github.com/rfyiamcool/notes/blob/main/istio_sidecar_performance.md)
 
 - [kafka的设计与实现](https://github.com/rfyiamcool/notes/blob/main/kafka_design.md)
 
@@ -149,6 +145,12 @@
 
 - [时间不同步造成的trace高时延假象](https://github.com/rfyiamcool/notes/blob/main/ntp_cause_message_latency.md)
 
+- [redis io thread 多线程的设计实现及性能瓶颈](https://github.com/rfyiamcool/notes/blob/main/redis_multi_thread_performance_bottlenecks.md)
+
+- [go http server感应连接中断及超时控制](https://github.com/rfyiamcool/notes/blob/main/go_http_client_timeout.md)
+
 - [golang在mac m1下的性能表现](https://github.com/rfyiamcool/notes/blob/main/mac_m1_golang_benchmark.md)
 
-- [redis io thread 多线程的设计实现及性能瓶颈](https://github.com/rfyiamcool/notes/blob/main/redis_multi_thread_performance_bottlenecks.md)
+- [istio envoy 的性能测试](https://github.com/rfyiamcool/notes/blob/main/istio_sidecar_performance.md)
+
+- [为 golang GRPC 配置 SAN 证书](https://github.com/rfyiamcool/notes/blob/main/create_san_tls.md)
