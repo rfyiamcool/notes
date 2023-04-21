@@ -159,6 +159,8 @@
 
 - [golang deadlock 死锁检测的实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_deadlock_atuo_detect.md)
 
+- [golang 通过 lockfree 优化 sync.pool 的锁竞争消耗](https://github.com/rfyiamcool/notes/blob/main/golang_sync_pool_optimize.md)
+
 - [golang在mac m1下的性能表现](https://github.com/rfyiamcool/notes/blob/main/mac_m1_golang_benchmark.md)
 
 - [istio envoy 的性能测试](https://github.com/rfyiamcool/notes/blob/main/istio_sidecar_performance.md)
