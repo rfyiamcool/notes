@@ -149,6 +149,8 @@
 
 - [go http server感应连接中断及超时控制](https://github.com/rfyiamcool/notes/blob/main/go_http_client_timeout.md)
 
+- [golang net/http超时引发大量fin-wait2](https://github.com/rfyiamcool/notes/blob/main/go_http_client_fin_wait2.md)
+
 - [golang在mac m1下的性能表现](https://github.com/rfyiamcool/notes/blob/main/mac_m1_golang_benchmark.md)
 
 - [istio envoy 的性能测试](https://github.com/rfyiamcool/notes/blob/main/istio_sidecar_performance.md)
