@@ -150,3 +150,5 @@
 - [时间不同步造成的trace高时延假象](https://github.com/rfyiamcool/notes/blob/main/ntp_cause_message_latency.md)
 
 - [golang在mac m1下的性能表现](https://github.com/rfyiamcool/notes/blob/main/mac_m1_golang_benchmark.md)
+
+- [redis io thread 多线程的设计实现及性能瓶颈](https://github.com/rfyiamcool/notes/blob/main/redis_multi_thread_performance_bottlenecks.md)
