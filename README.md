@@ -147,6 +147,8 @@
 
 - [redis io thread 多线程的设计实现及性能瓶颈](https://github.com/rfyiamcool/notes/blob/main/redis_multi_thread_performance_bottlenecks.md)
 
+- [使用 redis ziplist 大幅度降低优化千万级 kv 的内存占用](https://github.com/rfyiamcool/notes/blob/main/redis_ziplist_reduce_mem.md)
+
 - [go http server感应连接中断及超时控制](https://github.com/rfyiamcool/notes/blob/main/go_http_client_timeout.md)
 
 - [golang net/http超时引发大量fin-wait2](https://github.com/rfyiamcool/notes/blob/main/go_http_client_fin_wait2.md)
