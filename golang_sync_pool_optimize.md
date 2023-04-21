@@ -1,4 +1,4 @@
-# golang 通过 lockfree 优化 sync.pool 的锁竞争消耗
+# golang 通过 lockfree 无锁优化 sync.pool 的锁竞争开销
 
 sync.pool是golang的标准库，通过堆对象复用达到减少gc延迟的库。相比不断的创建堆对象，sync.pool通过对象复用确实可以减少gc的延迟。但sync.pool也是有损耗的，损耗主要体现在锁竞争上。go1.13版在sync.pool下了不少功夫来优化锁。
 

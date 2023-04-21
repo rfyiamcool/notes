@@ -157,9 +157,9 @@
 
 - [源码分析 golang grpc graceful shutdown 优雅退出](https://github.com/rfyiamcool/notes/blob/main/grpc_grace_shutdown.md)
 
-- [golang deadlock 死锁检测的实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_deadlock_atuo_detect.md)
+- [golang 通过 lockfree 无锁优化 sync.pool 的锁竞争开销](https://github.com/rfyiamcool/notes/blob/main/golang_sync_pool_optimize.md)
 
-- [golang 通过 lockfree 优化 sync.pool 的锁竞争消耗](https://github.com/rfyiamcool/notes/blob/main/golang_sync_pool_optimize.md)
+- [golang deadlock 死锁检测的实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_deadlock_atuo_detect.md)
 
 - [golang在mac m1下的性能表现](https://github.com/rfyiamcool/notes/blob/main/mac_m1_golang_benchmark.md)
 
