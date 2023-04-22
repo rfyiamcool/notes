@@ -151,7 +151,9 @@
 
 - [使用 redis ziplist 大幅度降低优化千万级 kv 的内存占用](https://github.com/rfyiamcool/notes/blob/main/redis_ziplist_reduce_mem.md)
 
-- [# golang gomaxprocs 不匹配引起 runtime 调度性能损耗](https://github.com/rfyiamcool/notes/blob/main/golang_runtime_maxprocs.md)
+- [golang runtime.stack 加锁引起高时延及阻塞](https://github.com/rfyiamcool/notes/blob/main/golang_runtime_stack.md)
+
+- [golang gomaxprocs 不匹配引起 runtime 调度性能损耗](https://github.com/rfyiamcool/notes/blob/main/golang_runtime_maxprocs.md)
 
 - [go http server感应连接中断及超时控制](https://github.com/rfyiamcool/notes/blob/main/go_http_client_timeout.md)
 
