@@ -169,7 +169,9 @@
 
 - [golang 编译期优化 defer 调用性能的实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_defer_optimize.md)
 
-- [golang 基于信号的抢占式调度的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_runtime_preempt.md)
+- [golang runtime preempt scheduler 基于信号的抢占式调度的实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_runtime_preempt.md)
+
+- [golang 基于 netpoll 优化 timer 定时器实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_netpoll_timer.md)
 
 - [golang在mac m1下的性能表现](https://github.com/rfyiamcool/notes/blob/main/mac_m1_golang_benchmark.md)
 

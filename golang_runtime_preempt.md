@@ -1,4 +1,4 @@
-# golang 基于信号的抢占式调度的设计实现原理
+# golang runtime preempt scheduler 基于信号的抢占式调度的实现原理
 
 ![https://xiaorui.cc/wp-content/uploads/2020/02/Jietu20200213-232930_Fotor.jpg](https://xiaorui.cc/wp-content/uploads/2020/02/Jietu20200213-232930_Fotor.jpg)
 
