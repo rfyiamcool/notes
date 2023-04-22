@@ -175,6 +175,10 @@
 
 - [golang 基于 netpoll 优化 timer 定时器实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_netpoll_timer.md)
 
+- [golang cgo 阻塞调用引发系统线程数暴增](https://github.com/rfyiamcool/notes/blob/main/golang_cgo_pmg.md)
+
+- [disk io 阻塞引发 golang 线程数暴涨的问题](https://github.com/rfyiamcool/notes/blob/main/golang_disk_io_block.md)
+
 - [golang gctrace 引起 runtime 调度阻塞](https://github.com/rfyiamcool/notes/blob/main/golang_gctrace_block.md)
 
 - [golang在mac m1下的性能表现](https://github.com/rfyiamcool/notes/blob/main/mac_m1_golang_benchmark.md)
