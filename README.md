@@ -163,6 +163,14 @@
 
 - [golang deadlock 死锁检测的实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_deadlock_atuo_detect.md)
 
+- [golang udp 高性能网络优化](https://github.com/rfyiamcool/notes/blob/main/golang_udp_performance.md)
+
+- [源码分析 golang context 的超时及关闭实现](https://github.com/rfyiamcool/notes/blob/main/golang_context_timeout_close.md)
+
+- [golang 编译期优化 defer 调用性能的实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_defer_optimize.md)
+
+- [golang 基于信号的抢占式调度的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_runtime_preempt.md)
+
 - [golang在mac m1下的性能表现](https://github.com/rfyiamcool/notes/blob/main/mac_m1_golang_benchmark.md)
 
 - [istio envoy 的性能测试](https://github.com/rfyiamcool/notes/blob/main/istio_sidecar_performance.md)
