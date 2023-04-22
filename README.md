@@ -151,6 +151,8 @@
 
 - [使用 redis ziplist 大幅度降低优化千万级 kv 的内存占用](https://github.com/rfyiamcool/notes/blob/main/redis_ziplist_reduce_mem.md)
 
+- [# golang gomaxprocs 不匹配引起 runtime 调度性能损耗](https://github.com/rfyiamcool/notes/blob/main/golang_runtime_maxprocs.md)
+
 - [go http server感应连接中断及超时控制](https://github.com/rfyiamcool/notes/blob/main/go_http_client_timeout.md)
 
 - [golang net/http超时引发大量fin-wait2](https://github.com/rfyiamcool/notes/blob/main/go_http_client_fin_wait2.md)
@@ -186,3 +188,5 @@
 - [istio envoy 的性能测试](https://github.com/rfyiamcool/notes/blob/main/istio_sidecar_performance.md)
 
 - [为 golang GRPC 配置 SAN 证书](https://github.com/rfyiamcool/notes/blob/main/create_san_tls.md)
+
+- [对比 redis lua和 modules 模块的性能损耗](https://github.com/rfyiamcool/notes/blob/main/redis_lua_vs_module.md)
