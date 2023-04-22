@@ -189,6 +189,6 @@
 
 - [istio envoy 的性能测试](https://github.com/rfyiamcool/notes/blob/main/istio_sidecar_performance.md)
 
-- [为 golang GRPC 配置 SAN 证书](https://github.com/rfyiamcool/notes/blob/main/create_san_tls.md)
-
 - [对比 redis lua和 modules 模块的性能损耗](https://github.com/rfyiamcool/notes/blob/main/redis_lua_vs_module.md)
+
+- [为 golang GRPC 配置 SAN 证书](https://github.com/rfyiamcool/notes/blob/main/create_san_tls.md)
