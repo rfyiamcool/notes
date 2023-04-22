@@ -173,6 +173,8 @@
 
 - [golang 基于 netpoll 优化 timer 定时器实现原理](https://github.com/rfyiamcool/notes/blob/main/golang_netpoll_timer.md)
 
+- [golang gctrace 引起 runtime 调度阻塞](https://github.com/rfyiamcool/notes/blob/main/golang_gctrace_block.md)
+
 - [golang在mac m1下的性能表现](https://github.com/rfyiamcool/notes/blob/main/mac_m1_golang_benchmark.md)
 
 - [istio envoy 的性能测试](https://github.com/rfyiamcool/notes/blob/main/istio_sidecar_performance.md)
