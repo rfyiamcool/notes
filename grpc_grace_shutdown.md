@@ -1,4 +1,4 @@
-# 源码分析 golang grpc graceful shutdown优雅退出
+# 源码分析 golang grpc graceful shutdown 优雅退出
 
 以前写过golang net/http graceful shutdown的实现原理，最近几个项目里都有用到grpc的gracefulStop方法，所以就好奇golang grpc优雅退出是如何实现的？
 
