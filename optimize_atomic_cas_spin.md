@@ -1,8 +1,8 @@
 # 优化 atomic cas lockfree spin 自旋引发的性能开销
 
-先说下 lockfree queue 可能出现的 spin 场景，当 ringbuffer 已满时，生产者会轮询判断是否可写，不调优的情况下会一直轮询。当 ringbuffer 无数据时，消费者进行轮询判断是否有数据可读，无其他策略优化下，无他就轮询判断。
+众所周知 lockfree queue 无锁队列需要注意 spin 忙轮询的问题。当 ringbuffer 已满时，生产者会轮询判断是否可写，不调优的情况下会一直轮询。当 ringbuffer 无数据时，消费者进行轮询判断是否有数据可读，无其他策略优化下，无他就轮询判断。
 
-当 lockfree queue 不可读或不可写时，可以选择一些策略优化轮询 spin 的问题。
+当 lockfree queue 不可读或不可写时，可以选择一些策略优化忙轮询 spin 的问题。
 
 这里拿 golang runtime mutex 来说，其内部实现有做方一些性能优化。在并发进行锁竞争时，先尝试 atomic cas，拿不到锁，则调用 procyield (cpu pause 空指令) 尝试拿锁，还不行，再尝试调用 osyield (syscall sched_yield) 拿锁。使用这些退避手段后依然无法拿锁，则调用 pthread_mutex_lock (syscall futex) 拿锁，这里拿不到锁则线程会挂起，根据 golang runtime pmg 的调度设计，阻塞的 m 没有释放 p 必然会影响 runtime 调度。当然 sysmon 会检测超时的 Psyscall mp，减轻 runtime 调度阻塞的问题。这里的锁是 runtime.mutex 而非 sync.Mutex，虽然会有锁竞争，但由于使用 runtime.mutex 的模块无慢逻辑的逻辑，所以无需担心。
 
