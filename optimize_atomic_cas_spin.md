@@ -1,4 +1,4 @@
-# 优化 atomic cas lockfree spin 自旋引发的性能开销
+# 优化 lockfree 中 atomic cas spin 忙轮询自旋引发的性能开销
 
 众所周知 lockfree queue 无锁队列需要注意 spin 忙轮询的问题。当 ringbuffer 已满时，生产者会轮询判断是否可写，不调优的情况下会一直轮询。当 ringbuffer 无数据时，消费者进行轮询判断是否有数据可读，无其他策略优化下，无他就轮询判断。
 
