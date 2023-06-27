@@ -4,13 +4,13 @@
 
 CNI, 它的全称是 `Container Network Interface`, 即容器网络的 API 接口. 平时比较常用的 CNI 实现有 Flannel、Calico 等.
 
-Flannel 采用的是 overlay 网络模式. 它使用 etcd 或者 kubernetes apiserver 存储整个集群的网络配置. 每个kubernetes 节点上会运行 flanneld 服务组件, 它从 etcd 或者 kubernetes api 中获取集群中各个 node 的网络地址 subset, 然后进行网络路由配置, 这样就可以实现跨主机的容器之间网络通信. 
+Flannel 支持 overlay/underlay 两种网络模式. 它使用 etcd 或者 kubernetes apiserver 存储整个集群的网络配置. 每个kubernetes 节点上会运行 flanneld 服务组件, 它从 etcd 或者 kubernetes api 中获取集群中各个 node 的网络地址 subset, 然后进行网络路由配置, 这样就可以实现跨主机的容器之间网络通信. 
 
 flannel 目前支持 udp, vxlan, host-gw 等 backend 实现. 
 
 - `udp` 模式少有人用, 其实现原理是在用户态实现 udp 转发服务, 数据会在内核和用户态之间拷贝, 从而影响转发性能. 
-- `host-gw` 通过三层路由的方式实现通信, 不涉及vxlan 这类的封包解包, 所以也不需要 flannel.1 虚机网卡, 直接配置路由表的方式设置 pod 的下一跳, 达到实现跨主机的容器之间的通信的目的. flannel host-gw 方案无疑是性能最好的方案, 但需要 node 之间同在一个二层网络 (vlan) 里可达, 如果 node 之间不在同一个二层网络, 那么则需要使用 `calico` 这类路由网络方案.
-- `vxlan` 是 Flannel 默认和推荐的模式, vxlan 网络虚拟化技术, 它使用一种隧道协议, 将二层以太网帧封装在四层 UDP 报文中, 通过三层网络传输组成一个虚拟大二层网络.
+- `host-gw` (underlay 模式)  通过三层路由的方式实现通信, 不涉及vxlan 这类的封包解包, 所以也不需要 flannel.1 虚机网卡, 直接配置路由表的方式设置 pod 的下一跳, 达到实现跨主机的容器之间的通信的目的. flannel host-gw 方案无疑是性能最好的方案, 但需要 node 之间同在一个二层网络 (vlan) 里可达, 如果 node 之间不在同一个二层网络, 那么则需要使用 `calico` 这类路由网络方案.
+- `vxlan` (overlay 模式) 是 Flannel 默认和推荐的模式, vxlan 网络虚拟化技术, 它使用一种隧道协议, 将二层以太网帧封装在四层 UDP 报文中, 通过三层网络传输组成一个虚拟大二层网络.
 
 `host-gw` 的性能损失大约在 10% 左右，而 vxlan 这类网络方案性能损失在 20%~30% 左右.
 
