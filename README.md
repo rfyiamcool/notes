@@ -8,6 +8,12 @@
 
 <img src="https://raw.githubusercontent.com/rfyiamcool/golang_logo/master/png/golang_76.png" width="35%">
 
+- [volcano 云原生批量计算平台的 controller 控制器设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_volcano_aigc_1.md)
+
+- [volcano 云原生批量计算平台的 scheduler 调度器设计实现](https://github.com/rfyiamcool/notes/blob/main/kubernetes_volcano_aigc_2.md)
+
+- [源码分析 kubernetes CNI flannel 容器网络插件的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_flannel_network_code.md)
+
 - [源码分析 kubernetes CNI flannel 容器网络插件的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_flannel_network_code.md)
 
 - [源码分析 kubernetes pause 容器的设计实现原理](https://github.com/rfyiamcool/notes/blob/main/kubernetes_pause_code.md)
